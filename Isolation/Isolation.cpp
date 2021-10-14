@@ -1,6 +1,6 @@
 #include <stdio.h> // print
 #include <stdlib.h> //abs
-
+//
 // ustawienia planszy
 const int rows = 6;
 const int columns = 8;
