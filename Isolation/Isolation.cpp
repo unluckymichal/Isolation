@@ -1,6 +1,6 @@
 #include <stdio.h> // print
 #include <stdlib.h> //abs
-//
+
 // ustawienia planszy
 const int rows = 6;
 const int columns = 8;
@@ -15,8 +15,12 @@ const char player2 = 'B';
 // menu
 int userInput = 0;
 const int exitNum = 99;
+const int playerVsAI = 1;
+const int playerVsPlayer = 2;
+// gameplay
 bool player1Turn = true;
 bool movePhase = true;
+bool pvpMode = false;
 
 void initBoard() 
 {
@@ -53,13 +57,11 @@ void printBoard()
 
 bool isInBoard(int row, int column) 
 {
-	return row > 0 && row <= rows && column > 0 && column <= columns;
+	return row >= 0 && row < rows && column >= 0 && column < columns;
 }
 
 bool isValidMove(int row, int column, int playerRow, int playerColumn)
 {
-	row -= 1;
-	column -= 1;
 	bool isValidRow = abs(row - playerRow) <= 1;
 	bool isValidColumn = abs(column - playerColumn) <= 1;
 
@@ -68,8 +70,6 @@ bool isValidMove(int row, int column, int playerRow, int playerColumn)
 
 bool isValidField(int row, int column)
 {
-	row -= 1;
-	column -= 1;
 	return board[row][column] == field;
 }
 
@@ -84,8 +84,6 @@ void move(int row, int column, int playerRow, int playerColumn)
 	// zmiana znaku na polu gracza na niezajete pole
 	board[playerRow][playerColumn] = field;
 	// poruszenie sie na nowe pole
-	row -= 1;
-	column -= 1;
 	if (player1Turn) 
 	{
 		player1Row = row;
@@ -104,8 +102,8 @@ void move(int row, int column, int playerRow, int playerColumn)
 
 bool isMovePossible(int playerRow, int playerColumn)
 {
-	int row = playerRow + 1;
-	int column = playerColumn + 1;
+	int row = playerRow;
+	int column = playerColumn;
 
 	for (int i = row - 1; i < row + 2; i++)
 	{
@@ -129,8 +127,6 @@ bool canDestroy(int row, int column)
 void destroy(int row, int column)
 {
 	printf("Valid field\n");
-	row -= 1;
-	column -= 1;
 	board[row][column] = emptyField;
 	printBoard();
 }
@@ -150,6 +146,8 @@ void takeFieldCords(int& row, int& column, const char* text)
 	userInput = scanf_s("%d", &row);
 	printf("Kolumna: ");
 	userInput = scanf_s("%d", &column);
+	row -= 1;
+	column -= 1;
 }
 
 void changeState(bool& state)
@@ -177,7 +175,7 @@ void tryToMove(int playerRow, int playerColumn)
 	}
 	else
 	{
-		// TODO GAME OVER
+		// koniec gry
 		printf("GAME OVER!\n");
 		userInput = exitNum;
 	}
@@ -202,7 +200,6 @@ void tryToDestroy()
 
 void takeTurn(bool player1Turn) 
 {
-	//movePhase = false; - do testow niszczenia
 	if (movePhase) 
 	{
 		if (player1Turn) 
@@ -220,10 +217,23 @@ void takeTurn(bool player1Turn)
 	}
 }
 
+void pickGameMode() 
+{
+	printf("Wybierz tryb gry: \n1 - Player vs AI\n2 - Player vs Player\n");
+	scanf_s("%d", &userInput);
+	if (userInput == playerVsPlayer)
+	{
+		pvpMode = true;
+	}
+}
+
+// TODO Player vs AI
 int main()
 {
 	// stworzenie planszy 
 	initBoard();
+	// wybor trybu gry
+	pickGameMode();
 	// wyprintowanie planszy
 	printBoard();
 	// petla do testowania
