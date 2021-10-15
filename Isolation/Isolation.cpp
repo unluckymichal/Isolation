@@ -1,6 +1,6 @@
 #include <stdio.h> // print
 #include <stdlib.h> //abs
-#include <ctime>
+#include <ctime>  // do randoma
 
 // ustawienia planszy
 const int rows = 6;
@@ -11,8 +11,8 @@ int player2Row = 3, player2Column = 7;
 // przypisanie znakow
 const char field = '#';
 const char emptyField = ' ';
-const char player1 = 'A';
-const char player2 = 'B';
+const char player1 = '1';
+const char player2 = '2';
 // menu
 int userInput = 0;
 const int exitNum = 99;
@@ -27,13 +27,13 @@ int gameMode = 0;
 int possibleRows[8];
 int possibleColumns[8];
 int numOfPossibleMoves = 0;
+// statystyki
 int numOfTurns = 0;
 int numOfGames = 0;
-const int maxGames = 10;
+const int maxGames = 100;
 
 void initBoard() 
 {
-	// inicjalizacja pol
 	for (int i = 0; i < rows; i++)
 	{
 		for (int j = 0; j < columns; j++)
@@ -42,7 +42,6 @@ void initBoard()
 		}
 	}
 
-	// ustawienie graczy
 	board[player1Row][player1Column] = player1;
 	board[player2Row][player2Column] = player2;
 }
@@ -121,7 +120,7 @@ bool isMovePossible(int playerRow, int playerColumn)
 		{
 			if (isInBoard(i, j) && isValidField(i, j)) 
 			{
-				// save possible moves for AI
+				// zapis mozliwych ruchow dla AI
 				possibleRows[numOfPossibleMoves] = i;
 				possibleColumns[numOfPossibleMoves] = j;
 				numOfPossibleMoves++;
@@ -145,121 +144,102 @@ void destroy(int row, int column)
 	printBoard();
 }
 
-void takeFieldCords(int& row, int& column, const char* text)
+void printMsg() 
 {
-	if (player1Turn) // mozna zrobic funkcje
+	const char* phaseName;
+	const char* playerName;
+	player1Turn ? playerName = "1" : playerName = "2";
+	movePhase ? phaseName = "poruszanie" : phaseName = "niszczenie";
+	printf("Gracz %s... %s\n", playerName, phaseName);
+}
+
+void setRandomField(int& row, int& column)
+{
+	srand((int)time(0));
+	int randomIndex = rand() % numOfPossibleMoves;
+	row = possibleRows[randomIndex];
+	column = possibleColumns[randomIndex];
+	printf("RandomIndex: %d\n", randomIndex);
+}
+
+// pobieranie pol w poblizu gracza
+void destroyRandomField(int& row, int& column)
+{
+	if (player1Turn)
 	{
-		printf("Gracz 1... %s\n", text);
+		if (isMovePossible(player2Row, player2Column))
+		{
+			setRandomField(row, column);
+		}
+		else // moze byc bug
+		{
+			isMovePossible(player1Row, player1Column);
+			setRandomField(row, column);
+		}
 	}
-	else 
+	else
 	{
-		printf("Gracz 2... %s\n", text);
+		if(isMovePossible(player1Row, player1Column))
+		{
+			setRandomField(row, column);
+		}
+		else // moze byc bug
+		{
+			isMovePossible(player2Row, player2Column);
+			setRandomField(row, column);
+		}
 	}
+}
+
+void takePlayerField(int& row, int& column)
+{
+	printf("Wiersz: ");
+	userInput = scanf_s("%d", &row);
+	printf("Kolumna: ");
+	userInput = scanf_s("%d", &column);
+	row -= 1;
+	column -= 1;
+}
+
+void takeBotField(int& row, int& column)
+{
+	if (movePhase)
+	{
+		setRandomField(row, column);
+	}
+	else
+	{
+		destroyRandomField(row, column);
+	}
+
+	printf("Ruch bota...\nWiersz: %d\nKolumna: %d\n", row + 1, column + 1);
+}
+
+void takeField(int& row, int& column)
+{
+	printMsg();
 	
 	switch (gameMode)
 	{
 	case AIvsAI:
-		printf("Ruch bota...\n");
-		// make random move
-		if (movePhase)
+		takeBotField(row, column);
+		break;
+
+	case playerVsAI:
+		if (player1Turn) 
 		{
-			// zrobic funkcje
-			srand((int)time(0));
-			int randomIndex = rand() % numOfPossibleMoves;
-			row = possibleRows[randomIndex];
-			column = possibleColumns[randomIndex];
-			printf("RandomIndex: %d\n", randomIndex);
+			takePlayerField(row, column);
 		}
 		else
 		{
-			// pobieranie pol w poblizu gracza
-			if (player1Turn) 
-			{
-				if(isMovePossible(player2Row, player2Column))
-				{
-					// TODO BUG  ---> w razie gdyby byly obok siebie i jeden z nich nie ma ruchu
-					if (numOfPossibleMoves == 0) 
-					{
-						isMovePossible(player1Row, player1Column);
-					}
-					srand((int)time(0));
-					int randomIndex = rand() % numOfPossibleMoves;
-					row = possibleRows[randomIndex];
-					column = possibleColumns[randomIndex];
-					printf("RandomIndex: %d\n", randomIndex);
-				}
-			}
-			else 
-			{
-				isMovePossible(player1Row, player1Column);
-				{
-					// w razie gdyby byly obok siebie i jeden z nich nie ma ruchu
-					if (numOfPossibleMoves == 0)
-					{
-						isMovePossible(player2Row, player2Column);
-					}
-					srand((int)time(0));
-					int randomIndex = rand() % numOfPossibleMoves;
-					row = possibleRows[randomIndex];
-					column = possibleColumns[randomIndex];
-					printf("RandomIndex: %d\n", randomIndex);
-				}
-			}
+			takeBotField(row, column);
 		}
+		break;
 
-		printf("Wiersz: %d\n", row + 1);
-		printf("Kolumna: %d\n", column + 1);
-		break;
-	case playerVsAI:
-		if (player1Turn) // ruch gracza
-		{
-			// zrobic funkcje
-			printf("Wiersz: ");
-			userInput = scanf_s("%d", &row);
-			printf("Kolumna: ");
-			userInput = scanf_s("%d", &column);
-			row -= 1;
-			column -= 1;
-		}
-		else 
-		{
-			printf("Ruch bota...\n");
-			// make random move
-			if (movePhase) 
-			{
-				// zrobic funkcje
-				int randomIndex = rand() % numOfPossibleMoves;         
-				row = possibleRows[randomIndex];
-				column = possibleColumns[randomIndex];
-			}
-			else 
-			{
-				// pobieranie pol w poblizu gracza
-				isMovePossible(player1Row, player1Column);
-				{
-					// w razie gdyby byly obok siebie i jeden z nich nie ma ruchu
-					if (numOfPossibleMoves == 0)
-					{
-						isMovePossible(player2Row, player2Column);
-					}
-					int randomIndex = rand() % numOfPossibleMoves;
-					row = possibleRows[randomIndex];
-					column = possibleColumns[randomIndex];
-					printf("RandomIndex: %d\n", randomIndex);
-				}
-			}
-			printf("Wiersz: %d\n", row + 1);
-			printf("Kolumna: %d\n", column + 1);
-		}
-		break;
 	case playerVsPlayer:
-		printf("Wiersz: ");
-		userInput = scanf_s("%d", &row);
-		printf("Kolumna: ");
-		userInput = scanf_s("%d", &column);
-		row -= 1;
-		column -= 1;
+		takePlayerField(row, column);
 		break;
+
 	default:
 		break;
 	}
@@ -270,13 +250,20 @@ void changeState(bool& state)
 	state = !state;
 }
 
+void endGame() 
+{
+	char winner = player1Turn ? player2 : player1;
+	printf("WYGRANA: %c\nIlosc tur: %d\n\n", winner, numOfTurns);
+	gameMode = gameOver;
+}
+
 void tryToMove(int playerRow, int playerColumn)
 {
 	if (isMovePossible(playerRow, playerColumn))
 	{
 		// pole na ktore chesz sie poruszyc
 		int row, column;
-		takeFieldCords(row, column, "Faza poruszania");
+		takeField(row, column);
 		// sprawdzenie czy poprawne, poruszenie sie, zmiana fazy
 		if (canMove(row, column, playerRow, playerColumn))
 		{
@@ -288,19 +275,16 @@ void tryToMove(int playerRow, int playerColumn)
 			printf("Bad field\n");
 		}
 	}
-	else
+	else // koniec gry
 	{
-		// koniec gry
-		char winner = player1Turn ? player2 : player1;
-		printf("WYGRANA: %c\nIlosc tur: %d\n\n", winner, numOfTurns);
-		gameMode = gameOver;
+		endGame();
 	}
 }
 void tryToDestroy()
 {
 	// pole na ktore chesz zniszczyc
 	int row, column;
-	takeFieldCords(row, column, "Faza niszczenia");
+	takeField(row, column);
 	// sprawdzenie czy poprawne, zniszczenie, zmiana fazy, zmiana gracza
 	if (canDestroy(row, column))
 	{
@@ -359,22 +343,18 @@ void resetGame()
 
 int main()
 {
+	// stworzenie planszy, wybor trybu gry, wyprintowanie planszy
 	while (userInput != exitNum)
 	{
-		// stworzenie planszy 
 		initBoard();
-		// wybor trybu gry
 		pickGameMode();
-		// wyprintowanie planszy
 		printBoard();
 		// petla do grania
 		while (gameMode != gameOver) 
 		{
 			takeTurn(player1Turn);
 		}
-
 		resetGame();
-
 		// dla botow zeby nie bylo nieskonczonej ilosci gier
 		if (numOfGames > maxGames)
 		{
