@@ -1,5 +1,6 @@
 #include <stdio.h> // print
 #include <stdlib.h> //abs
+#include <ctime>
 
 // ustawienia planszy
 const int rows = 6;
@@ -15,12 +16,20 @@ const char player2 = 'B';
 // menu
 int userInput = 0;
 const int exitNum = 99;
-const int playerVsAI = 1;
-const int playerVsPlayer = 2;
+const int AIvsAI = 1;
+const int playerVsAI = 2;
+const int playerVsPlayer = 3;
+const int gameOver = 999;
 // gameplay
 bool player1Turn = true;
 bool movePhase = true;
-bool pvpMode = false;
+int gameMode = 0;
+int possibleRows[8];
+int possibleColumns[8];
+int numOfPossibleMoves = 0;
+int numOfTurns = 0;
+int numOfGames = 0;
+const int maxGames = 10;
 
 void initBoard() 
 {
@@ -104,6 +113,7 @@ bool isMovePossible(int playerRow, int playerColumn)
 {
 	int row = playerRow;
 	int column = playerColumn;
+	numOfPossibleMoves = 0;
 
 	for (int i = row - 1; i < row + 2; i++)
 	{
@@ -111,12 +121,16 @@ bool isMovePossible(int playerRow, int playerColumn)
 		{
 			if (isInBoard(i, j) && isValidField(i, j)) 
 			{
-				return true;
+				// save possible moves for AI
+				possibleRows[numOfPossibleMoves] = i;
+				possibleColumns[numOfPossibleMoves] = j;
+				numOfPossibleMoves++;
 			}
 		}
 	}
 
-	return false;
+	printf("numOfPossibleMoves: %d\n", numOfPossibleMoves);
+	return numOfPossibleMoves > 0;
 }
 
 bool canDestroy(int row, int column)
@@ -142,12 +156,113 @@ void takeFieldCords(int& row, int& column, const char* text)
 		printf("Gracz 2... %s\n", text);
 	}
 	
-	printf("Wiersz: ");
-	userInput = scanf_s("%d", &row);
-	printf("Kolumna: ");
-	userInput = scanf_s("%d", &column);
-	row -= 1;
-	column -= 1;
+	switch (gameMode)
+	{
+	case AIvsAI:
+		printf("Ruch bota...\n");
+		// make random move
+		if (movePhase)
+		{
+			// zrobic funkcje
+			srand((int)time(0));
+			int randomIndex = rand() % numOfPossibleMoves;
+			row = possibleRows[randomIndex];
+			column = possibleColumns[randomIndex];
+			printf("RandomIndex: %d\n", randomIndex);
+		}
+		else
+		{
+			// pobieranie pol w poblizu gracza
+			if (player1Turn) 
+			{
+				if(isMovePossible(player2Row, player2Column))
+				{
+					// TODO BUG  ---> w razie gdyby byly obok siebie i jeden z nich nie ma ruchu
+					if (numOfPossibleMoves == 0) 
+					{
+						isMovePossible(player1Row, player1Column);
+					}
+					srand((int)time(0));
+					int randomIndex = rand() % numOfPossibleMoves;
+					row = possibleRows[randomIndex];
+					column = possibleColumns[randomIndex];
+					printf("RandomIndex: %d\n", randomIndex);
+				}
+			}
+			else 
+			{
+				isMovePossible(player1Row, player1Column);
+				{
+					// w razie gdyby byly obok siebie i jeden z nich nie ma ruchu
+					if (numOfPossibleMoves == 0)
+					{
+						isMovePossible(player2Row, player2Column);
+					}
+					srand((int)time(0));
+					int randomIndex = rand() % numOfPossibleMoves;
+					row = possibleRows[randomIndex];
+					column = possibleColumns[randomIndex];
+					printf("RandomIndex: %d\n", randomIndex);
+				}
+			}
+		}
+
+		printf("Wiersz: %d\n", row + 1);
+		printf("Kolumna: %d\n", column + 1);
+		break;
+	case playerVsAI:
+		if (player1Turn) // ruch gracza
+		{
+			// zrobic funkcje
+			printf("Wiersz: ");
+			userInput = scanf_s("%d", &row);
+			printf("Kolumna: ");
+			userInput = scanf_s("%d", &column);
+			row -= 1;
+			column -= 1;
+		}
+		else 
+		{
+			printf("Ruch bota...\n");
+			// make random move
+			if (movePhase) 
+			{
+				// zrobic funkcje
+				int randomIndex = rand() % numOfPossibleMoves;         
+				row = possibleRows[randomIndex];
+				column = possibleColumns[randomIndex];
+			}
+			else 
+			{
+				// pobieranie pol w poblizu gracza
+				isMovePossible(player1Row, player1Column);
+				{
+					// w razie gdyby byly obok siebie i jeden z nich nie ma ruchu
+					if (numOfPossibleMoves == 0)
+					{
+						isMovePossible(player2Row, player2Column);
+					}
+					int randomIndex = rand() % numOfPossibleMoves;
+					row = possibleRows[randomIndex];
+					column = possibleColumns[randomIndex];
+					printf("RandomIndex: %d\n", randomIndex);
+				}
+			}
+			printf("Wiersz: %d\n", row + 1);
+			printf("Kolumna: %d\n", column + 1);
+		}
+		break;
+	case playerVsPlayer:
+		printf("Wiersz: ");
+		userInput = scanf_s("%d", &row);
+		printf("Kolumna: ");
+		userInput = scanf_s("%d", &column);
+		row -= 1;
+		column -= 1;
+		break;
+	default:
+		break;
+	}
 }
 
 void changeState(bool& state)
@@ -176,8 +291,9 @@ void tryToMove(int playerRow, int playerColumn)
 	else
 	{
 		// koniec gry
-		printf("GAME OVER!\n");
-		userInput = exitNum;
+		char winner = player1Turn ? player2 : player1;
+		printf("WYGRANA: %c\nIlosc tur: %d\n\n", winner, numOfTurns);
+		gameMode = gameOver;
 	}
 }
 void tryToDestroy()
@@ -205,6 +321,7 @@ void takeTurn(bool player1Turn)
 		if (player1Turn) 
 		{
 			tryToMove(player1Row, player1Column);
+			numOfTurns++;
 		}
 		else 
 		{
@@ -219,27 +336,50 @@ void takeTurn(bool player1Turn)
 
 void pickGameMode() 
 {
-	printf("Wybierz tryb gry: \n1 - Player vs AI\n2 - Player vs Player\n");
-	scanf_s("%d", &userInput);
-	if (userInput == playerVsPlayer)
-	{
-		pvpMode = true;
-	}
+	printf("Wybierz tryb gry: \n1 - AI vs AI\n2 - Player vs AI\n3 - Player vs Player\n");
+	// granie dla graczy lub gracz vs ai
+	//scanf_s("%d", &userInput);
+	//gameMode = userInput;
+	
+	// auto granie dla botow
+	gameMode = AIvsAI;
+	numOfGames += 1;
 }
 
-// TODO Player vs AI
+void resetGame() 
+{
+	player1Row = 2, player1Column = 0;
+	player2Row = 3, player2Column = 7;
+
+	player1Turn = true;
+	movePhase = true;
+	numOfPossibleMoves = 0;
+	numOfTurns = 0;
+}
+
 int main()
 {
-	// stworzenie planszy 
-	initBoard();
-	// wybor trybu gry
-	pickGameMode();
-	// wyprintowanie planszy
-	printBoard();
-	// petla do testowania
 	while (userInput != exitNum)
 	{
-		takeTurn(player1Turn);
+		// stworzenie planszy 
+		initBoard();
+		// wybor trybu gry
+		pickGameMode();
+		// wyprintowanie planszy
+		printBoard();
+		// petla do grania
+		while (gameMode != gameOver) 
+		{
+			takeTurn(player1Turn);
+		}
+
+		resetGame();
+
+		// dla botow zeby nie bylo nieskonczonej ilosci gier
+		if (numOfGames > maxGames)
+		{
+			userInput = exitNum;
+		}
 	}
 
 	return 0;
