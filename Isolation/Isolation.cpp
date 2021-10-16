@@ -30,7 +30,7 @@ int numOfPossibleMoves = 0;
 // statystyki
 int numOfTurns = 0;
 int numOfGames = 0;
-const int maxGames = 100;
+int maxGames = 0;
 
 void initBoard() 
 {
@@ -254,7 +254,7 @@ void endGame()
 {
 	char winner = player1Turn ? player2 : player1;
 	printf("WYGRANA: %c\nIlosc tur: %d\n\n", winner, numOfTurns);
-	gameMode = gameOver;
+	userInput = gameOver;
 }
 
 void tryToMove(int playerRow, int playerColumn)
@@ -322,12 +322,14 @@ void pickGameMode()
 {
 	printf("Wybierz tryb gry: \n1 - AI vs AI\n2 - Player vs AI\n3 - Player vs Player\n");
 	// granie dla graczy lub gracz vs ai
-	//scanf_s("%d", &userInput);
-	//gameMode = userInput;
-	
-	// auto granie dla botow
-	gameMode = AIvsAI;
-	numOfGames += 1;
+	scanf_s("%d", &userInput);
+	gameMode = userInput;
+
+	if (gameMode == AIvsAI) 
+	{
+		printf("Podaj ilosc gier: ");
+		scanf_s("%d", &maxGames);
+	}
 }
 
 void resetGame() 
@@ -339,27 +341,42 @@ void resetGame()
 	movePhase = true;
 	numOfPossibleMoves = 0;
 	numOfTurns = 0;
-}
+	userInput = 0;
 
-int main()
-{
-	// stworzenie planszy, wybor trybu gry, wyprintowanie planszy
-	while (userInput != exitNum)
+	if (gameMode != AIvsAI) 
 	{
-		initBoard();
 		pickGameMode();
-		printBoard();
-		// petla do grania
-		while (gameMode != gameOver) 
-		{
-			takeTurn(player1Turn);
-		}
-		resetGame();
-		// dla botow zeby nie bylo nieskonczonej ilosci gier
+	}
+	else 
+	{
+		numOfGames += 1;
 		if (numOfGames > maxGames)
 		{
 			userInput = exitNum;
 		}
+	}
+
+	if (userInput != exitNum) 
+	{
+		initBoard();
+		printBoard();
+	}
+}
+
+int main()
+{
+	// wybor trybu, grystworzenie planszy, wyprintowanie planszy
+	pickGameMode();
+	initBoard();
+	printBoard();
+	// petla do grania
+	while (userInput != exitNum)
+	{
+		while (userInput != gameOver)
+		{
+			takeTurn(player1Turn);
+		}
+		resetGame();
 	}
 
 	return 0;
