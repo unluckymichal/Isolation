@@ -128,7 +128,6 @@ bool isMovePossible(int playerRow, int playerColumn)
 		}
 	}
 
-	printf("numOfPossibleMoves: %d\n", numOfPossibleMoves);
 	return numOfPossibleMoves > 0;
 }
 
@@ -159,7 +158,6 @@ void setRandomField(int& row, int& column)
 	int randomIndex = rand() % numOfPossibleMoves;
 	row = possibleRows[randomIndex];
 	column = possibleColumns[randomIndex];
-	printf("RandomIndex: %d\n", randomIndex);
 }
 
 // pobieranie pol w poblizu gracza
@@ -167,28 +165,19 @@ void destroyRandomField(int& row, int& column)
 {
 	if (player1Turn)
 	{
-		if (isMovePossible(player2Row, player2Column))
-		{
-			setRandomField(row, column);
-		}
-		else // moze byc bug
+		if (!isMovePossible(player2Row, player2Column))
 		{
 			isMovePossible(player1Row, player1Column);
-			setRandomField(row, column);
 		}
 	}
 	else
 	{
-		if(isMovePossible(player1Row, player1Column))
-		{
-			setRandomField(row, column);
-		}
-		else // moze byc bug
+		if(!isMovePossible(player1Row, player1Column))
 		{
 			isMovePossible(player2Row, player2Column);
-			setRandomField(row, column);
 		}
 	}
+	setRandomField(row, column);
 }
 
 void takePlayerField(int& row, int& column)
@@ -203,15 +192,7 @@ void takePlayerField(int& row, int& column)
 
 void takeBotField(int& row, int& column)
 {
-	if (movePhase)
-	{
-		setRandomField(row, column);
-	}
-	else
-	{
-		destroyRandomField(row, column);
-	}
-
+	movePhase ? setRandomField(row, column) : destroyRandomField(row, column);
 	printf("Ruch bota...\nWiersz: %d\nKolumna: %d\n", row + 1, column + 1);
 }
 
@@ -226,14 +207,7 @@ void takeField(int& row, int& column)
 		break;
 
 	case playerVsAI:
-		if (player1Turn) 
-		{
-			takePlayerField(row, column);
-		}
-		else
-		{
-			takeBotField(row, column);
-		}
+		player1Turn ? takePlayerField(row, column) : takeBotField(row, column);
 		break;
 
 	case playerVsPlayer:
@@ -269,6 +243,7 @@ void tryToMove(int playerRow, int playerColumn)
 		{
 			move(row, column, playerRow, playerColumn);
 			changeState(movePhase);
+			numOfTurns++;
 		}
 		else
 		{
@@ -302,15 +277,7 @@ void takeTurn(bool player1Turn)
 {
 	if (movePhase) 
 	{
-		if (player1Turn) 
-		{
-			tryToMove(player1Row, player1Column);
-			numOfTurns++;
-		}
-		else 
-		{
-			tryToMove(player2Row, player2Column);
-		}
+		player1Turn ? tryToMove(player1Row, player1Column) : tryToMove(player2Row, player2Column);
 	}
 	else 
 	{
