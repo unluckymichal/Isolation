@@ -28,6 +28,7 @@ int maxGames = 0;
 float bOneGame = 0;
 float bAllGames = 0;
 float dAllGames = 0;
+int validBoards = 0;
 
 void initBoard() 
 {
@@ -284,6 +285,23 @@ void printStats()
 	float avrB = bAllGames / numOfGames;
 	float avrD = dAllGames / numOfGames;
 	printf("Srednie b: %f\nSrednie d: %f\n", avrB, avrD);
+	printf("Poprawne plansze: %i\n\n", validBoards);
+}
+
+void isValidBoard() 
+{
+	srand((int)time(NULL));
+	int randomRow = rand() % rows;
+	srand((int)time(NULL));
+	int randomColumn = rand() % columns;
+	printf("randomRow: %i\nrandomColumn: %i\n", randomRow, randomColumn);
+
+	if (canMove(randomRow, randomColumn, player2Row, player2Column))
+	{
+		validBoards++;
+	}
+
+	isGameOver = true;
 }
 
 int main()
@@ -298,6 +316,12 @@ int main()
 		while (!isGameOver)
 		{
 			takeTurn();
+			/*odkomentowac do testowania drugiej metody obliczania zlozonosci
+			if (!player1Turn) 
+			{
+				isValidBoard();
+			}
+			*/
 		}
 
 		calculateStats();
