@@ -13,17 +13,10 @@ const char field = '#';
 const char emptyField = ' ';
 const char player1 = '1';
 const char player2 = '2';
-// menu
-int userInput = 0;
-const int exitNum = 99;
-const int AIvsAI = 1;
-const int playerVsAI = 2;
-const int playerVsPlayer = 3;
-const int gameOver = 999;
 // gameplay
 bool player1Turn = true;
 bool movePhase = true;
-int gameMode = 0;
+bool isGameOver = false;
 int possibleRows[8];
 int possibleColumns[8];
 int numOfPossibleMoves = 0;
@@ -31,6 +24,10 @@ int numOfPossibleMoves = 0;
 int numOfTurns = 0;
 int numOfGames = 0;
 int maxGames = 0;
+// do zlozonosci gry
+float bOneGame = 0;
+float bAllGames = 0;
+float dAllGames = 0;
 
 void initBoard() 
 {
@@ -88,7 +85,6 @@ bool canMove(int row, int column, int playerRow, int playerColumn)
 
 void move(int row, int column, int playerRow, int playerColumn)
 {
-	printf("Valid field\n");
 	// zmiana znaku na polu gracza na niezajete pole
 	board[playerRow][playerColumn] = field;
 	// poruszenie sie na nowe pole
@@ -128,6 +124,12 @@ bool isMovePossible(int playerRow, int playerColumn)
 		}
 	}
 
+	// do obliczania zlozonosci gry
+	if (movePhase)
+	{
+		bOneGame += numOfPossibleMoves;
+	}
+
 	return numOfPossibleMoves > 0;
 }
 
@@ -138,7 +140,6 @@ bool canDestroy(int row, int column)
 
 void destroy(int row, int column)
 {
-	printf("Valid field\n");
 	board[row][column] = emptyField;
 	printBoard();
 }
@@ -180,43 +181,11 @@ void destroyRandomField(int& row, int& column)
 	setRandomField(row, column);
 }
 
-void takePlayerField(int& row, int& column)
-{
-	printf("Wiersz: ");
-	userInput = scanf_s("%d", &row);
-	printf("Kolumna: ");
-	userInput = scanf_s("%d", &column);
-	row -= 1;
-	column -= 1;
-}
-
-void takeBotField(int& row, int& column)
-{
-	movePhase ? setRandomField(row, column) : destroyRandomField(row, column);
-	printf("Ruch bota...\nWiersz: %d\nKolumna: %d\n", row + 1, column + 1);
-}
-
 void takeField(int& row, int& column)
 {
 	printMsg();
-	
-	switch (gameMode)
-	{
-	case AIvsAI:
-		takeBotField(row, column);
-		break;
-
-	case playerVsAI:
-		player1Turn ? takePlayerField(row, column) : takeBotField(row, column);
-		break;
-
-	case playerVsPlayer:
-		takePlayerField(row, column);
-		break;
-
-	default:
-		break;
-	}
+	movePhase ? setRandomField(row, column) : destroyRandomField(row, column);
+	printf("Wiersz: %d\nKolumna: %d\n", row + 1, column + 1);
 }
 
 void changeState(bool& state)
@@ -227,8 +196,8 @@ void changeState(bool& state)
 void endGame() 
 {
 	char winner = player1Turn ? player2 : player1;
-	printf("WYGRANA: %c\nIlosc tur: %d\n\n", winner, numOfTurns);
-	userInput = gameOver;
+	printf("WYGRANA: %c\nIlosc ruchow: %d\n\n", winner, numOfTurns);
+	isGameOver = true;
 }
 
 void tryToMove(int playerRow, int playerColumn)
@@ -245,19 +214,15 @@ void tryToMove(int playerRow, int playerColumn)
 			changeState(movePhase);
 			numOfTurns++;
 		}
-		else
-		{
-			printf("Bad field\n");
-		}
 	}
-	else // koniec gry
+	else
 	{
 		endGame();
 	}
 }
 void tryToDestroy()
 {
-	// pole na ktore chesz zniszczyc
+	// pole ktore chesz zniszczyc
 	int row, column;
 	takeField(row, column);
 	// sprawdzenie czy poprawne, zniszczenie, zmiana fazy, zmiana gracza
@@ -267,13 +232,9 @@ void tryToDestroy()
 		changeState(movePhase);
 		changeState(player1Turn);
 	}
-	else
-	{
-		printf("Bad field\n");
-	}
 }
 
-void takeTurn(bool player1Turn) 
+void takeTurn() 
 {
 	if (movePhase) 
 	{
@@ -285,18 +246,10 @@ void takeTurn(bool player1Turn)
 	}
 }
 
-void pickGameMode() 
+void setNumOfGames() 
 {
-	printf("Wybierz tryb gry: \n1 - AI vs AI\n2 - Player vs AI\n3 - Player vs Player\n");
-	// granie dla graczy lub gracz vs ai
-	scanf_s("%d", &userInput);
-	gameMode = userInput;
-
-	if (gameMode == AIvsAI) 
-	{
-		printf("Podaj ilosc gier: ");
-		scanf_s("%d", &maxGames);
-	}
+	printf("Podaj ilosc gier: ");
+	scanf_s("%d", &maxGames);
 }
 
 void resetGame() 
@@ -306,45 +259,52 @@ void resetGame()
 
 	player1Turn = true;
 	movePhase = true;
+	isGameOver = false;
 	numOfPossibleMoves = 0;
 	numOfTurns = 0;
-	userInput = 0;
+	bOneGame = 0;
 
-	if (gameMode != AIvsAI) 
-	{
-		pickGameMode();
-	}
-	else 
-	{
-		numOfGames += 1;
-		if (numOfGames > maxGames)
-		{
-			userInput = exitNum;
-		}
-	}
-
-	if (userInput != exitNum) 
+	if (numOfGames < maxGames) 
 	{
 		initBoard();
 		printBoard();
 	}
 }
 
+void calculateStats() 
+{
+	numOfGames += 1;
+
+	bAllGames += (bOneGame / numOfTurns);
+	dAllGames += numOfTurns;
+}
+
+void printStats()
+{
+	float avrB = bAllGames / numOfGames;
+	float avrD = dAllGames / numOfGames;
+	printf("Srednie b: %f\nSrednie d: %f\n", avrB, avrD);
+}
+
 int main()
 {
-	// wybor trybu, grystworzenie planszy, wyprintowanie planszy
-	pickGameMode();
+	// wybor ilosci gier, stworzenie planszy, wyprintowanie planszy
+	setNumOfGames();
 	initBoard();
 	printBoard();
 	// petla do grania
-	while (userInput != exitNum)
+	while (numOfGames < maxGames)
 	{
-		while (userInput != gameOver)
+		while (!isGameOver)
 		{
-			takeTurn(player1Turn);
+			takeTurn();
 		}
+
+		calculateStats();
 		resetGame();
 	}
+
+	printStats();
 
 	return 0;
 }
