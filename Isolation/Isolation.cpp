@@ -1,6 +1,7 @@
 #include <stdio.h> // print
 #include <stdlib.h> //abs
 #include <ctime>  // do randoma
+#include <algorithm> // std::max
 
 // ustawienia planszy
 const int rows = 6;
@@ -21,14 +22,16 @@ int possibleRows[8];
 int possibleColumns[8];
 int numOfPossibleMoves = 0;
 // statystyki
-int numOfTurns = 0;
 int numOfGames = 0;
 int maxGames = 0;
-// do zlozonosci gry
-float bOneGame = 0;
-float bAllGames = 0;
-float dAllGames = 0;
-int validBoards = 0;
+// algorytmy
+int maxDepth = 3;
+
+struct Node 
+{
+	int row;
+	int column;
+};
 
 void initBoard() 
 {
@@ -125,13 +128,26 @@ bool isMovePossible(int playerRow, int playerColumn)
 		}
 	}
 
-	// do obliczania zlozonosci gry
-	if (movePhase)
+	return numOfPossibleMoves > 0;
+}
+
+int minimax(Node& node, int depth, bool maximizingPlayer)
+{
+	if (depth == 0 )// TODO)
 	{
-		bOneGame += numOfPossibleMoves;
+		// TODO
 	}
 
-	return numOfPossibleMoves > 0;
+	if (maximizingPlayer)
+	{
+		// TODO
+	}
+	else
+	{
+		// TODO
+	}
+
+	return 0;
 }
 
 bool canDestroy(int row, int column)
@@ -197,7 +213,7 @@ void changeState(bool& state)
 void endGame() 
 {
 	char winner = player1Turn ? player2 : player1;
-	printf("WYGRANA: %c\nIlosc ruchow: %d\n\n", winner, numOfTurns);
+	printf("WYGRANA: %c\n", winner);
 	isGameOver = true;
 }
 
@@ -213,7 +229,6 @@ void tryToMove(int playerRow, int playerColumn)
 		{
 			move(row, column, playerRow, playerColumn);
 			changeState(movePhase);
-			numOfTurns++;
 		}
 	}
 	else
@@ -262,46 +277,12 @@ void resetGame()
 	movePhase = true;
 	isGameOver = false;
 	numOfPossibleMoves = 0;
-	numOfTurns = 0;
-	bOneGame = 0;
 
 	if (numOfGames < maxGames) 
 	{
 		initBoard();
 		printBoard();
 	}
-}
-
-void calculateStats() 
-{
-	numOfGames += 1;
-
-	bAllGames += (bOneGame / numOfTurns);
-	dAllGames += numOfTurns;
-}
-
-void printStats()
-{
-	float avrB = bAllGames / numOfGames;
-	float avrD = dAllGames / numOfGames;
-	printf("Srednie b: %f\nSrednie d: %f\n", avrB, avrD);
-	printf("Poprawne plansze: %i\n\n", validBoards);
-}
-
-void isValidBoard() 
-{
-	srand((int)time(NULL));
-	int randomRow = rand() % rows;
-	srand((int)time(NULL));
-	int randomColumn = rand() % columns;
-	printf("randomRow: %i\nrandomColumn: %i\n", randomRow, randomColumn);
-
-	if (canMove(randomRow, randomColumn, player2Row, player2Column))
-	{
-		validBoards++;
-	}
-
-	isGameOver = true;
 }
 
 int main()
@@ -316,19 +297,11 @@ int main()
 		while (!isGameOver)
 		{
 			takeTurn();
-			/*odkomentowac do testowania drugiej metody obliczania zlozonosci
-			if (!player1Turn) 
-			{
-				isValidBoard();
-			}
-			*/
 		}
 
-		calculateStats();
+		numOfGames += 1;
 		resetGame();
 	}
-
-	printStats();
 
 	return 0;
 }
