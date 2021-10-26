@@ -69,40 +69,29 @@ bool isInBoard(int row, int column)
 	return row >= 0 && row < rows && column >= 0 && column < columns;
 }
 
-bool isValidMove(int row, int column, int playerRow, int playerColumn)
-{
-	bool isValidRow = abs(row - playerRow) <= 1;
-	bool isValidColumn = abs(column - playerColumn) <= 1;
-
-	return isValidRow && isValidColumn;
-}
 
 bool isValidField(int row, int column)
 {
 	return board[row][column] == field;
 }
 
-bool canMove(int row, int column, int playerRow, int playerColumn)
+// zmiana znaku na polu gracza na niezajete pole
+// poruszenie sie na nowe pole
+void move(int newRow, int newColumn)
 {
-	return isInBoard(row, column) && isValidMove(row, column, playerRow, playerColumn) && isValidField(row, column);
-}
-
-void move(int row, int column, int playerRow, int playerColumn)
-{
-	// zmiana znaku na polu gracza na niezajete pole
-	board[playerRow][playerColumn] = field;
-	// poruszenie sie na nowe pole
 	if (player1Turn) 
 	{
-		player1Row = row;
-		player1Column = column;
-		board[row][column] = player1;
+		board[player1Row][player1Column] = field;
+		player1Row = newRow;
+		player1Column = newColumn;
+		board[player1Row][player1Column] = player1;
 	}
 	else 
 	{
-		player2Row = row;
-		player2Column = column;
-		board[row][column] = player2;
+		board[player2Row][player2Column] = field;
+		player2Row = newRow;
+		player2Column = newColumn;
+		board[player2Row][player2Column] = player2;
 	}
 	
 	printBoard();
@@ -110,13 +99,11 @@ void move(int row, int column, int playerRow, int playerColumn)
 
 bool isMovePossible(int playerRow, int playerColumn)
 {
-	int row = playerRow;
-	int column = playerColumn;
 	numOfPossibleMoves = 0;
 
-	for (int i = row - 1; i < row + 2; i++)
+	for (int i = playerRow - 1; i < playerRow + 2; i++)
 	{
-		for (int j = column - 1; j < column + 2; j++)
+		for (int j = playerColumn - 1; j < playerColumn + 2; j++)
 		{
 			if (isInBoard(i, j) && isValidField(i, j)) 
 			{
@@ -224,12 +211,9 @@ void tryToMove(int playerRow, int playerColumn)
 		// pole na ktore chesz sie poruszyc
 		int row, column;
 		takeField(row, column);
-		// sprawdzenie czy poprawne, poruszenie sie, zmiana fazy
-		if (canMove(row, column, playerRow, playerColumn))
-		{
-			move(row, column, playerRow, playerColumn);
-			changeState(movePhase);
-		}
+		// poruszenie sie, zmiana fazy
+		move(row, column);
+		changeState(movePhase);
 	}
 	else
 	{
