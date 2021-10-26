@@ -188,7 +188,23 @@ void destroyRandomField(int& row, int& column)
 void takeField(int& row, int& column)
 {
 	printMsg();
-	movePhase ? setRandomField(row, column) : destroyRandomField(row, column);
+	if (movePhase) 
+	{
+		if (player1Turn) 
+		{
+			// tu wklepac kod do minimaxa i zakomentowac randoma
+			setRandomField(row, column);
+		}
+		else 
+		{
+			setRandomField(row, column);
+		}
+	}
+	else 
+	{
+		destroyRandomField(row, column);
+	}
+
 	printf("Wiersz: %d\nKolumna: %d\n", row + 1, column + 1);
 }
 
