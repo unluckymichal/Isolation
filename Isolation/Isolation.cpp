@@ -2,6 +2,7 @@
 #include <stdlib.h> //abs
 #include <ctime>  // do randoma
 #include <algorithm> // std::max
+#include <vector>  // do przechowywania ruchow
 
 // ustawienia planszy
 const int rows = 6;
@@ -24,16 +25,29 @@ int numOfPossibleMoves = 0;
 // statystyki
 int numOfGames = 0;
 int maxGames = 0;
+int player1Wins = 0;
 // algorytmy
-int maxDepth = 3;
+int maxDepth = 4;
 
-struct Node 
+struct GameState
+{
+	int player1Row;
+	int player1Column;
+	int player2Row;
+	int player2Column;
+};
+
+GameState tempGameState{ player1Row, player1Column, player2Row, player2Column };
+
+struct Move
 {
 	int row;
 	int column;
 };
 
-void initBoard() 
+/********************* GRA NIE ZMIANIAC***********************************/
+
+void initBoard()
 {
 	for (int i = 0; i < rows; i++)
 	{
@@ -47,13 +61,13 @@ void initBoard()
 	board[player2Row][player2Column] = player2;
 }
 
-void printBoard() 
+void printBoard()
 {
 	{
-		printf("\n  1 2 3 4 5 6 7 8\n");
+		printf("\n  0 1 2 3 4 5 6 7\n");
 		for (int i = 0; i < rows; i++)
 		{
-			printf("%i ", i + 1);
+			printf("%i ", i);
 			for (int j = 0; j < columns; j++)
 			{
 				printf("%c ", board[i][j]);
@@ -64,40 +78,28 @@ void printBoard()
 	}
 }
 
-bool isInBoard(int row, int column) 
+void printMsg()
 {
-	return row >= 0 && row < rows && column >= 0 && column < columns;
+	printf("Gracz %s... %s\n", player1Turn ? "1" : "2", movePhase ? "poruszanie" : "niszczenie");
 }
 
+bool isInBoard(int row, int column)
+{
+	return row >= 0 && row < rows&& column >= 0 && column < columns;
+}
 
 bool isValidField(int row, int column)
 {
 	return board[row][column] == field;
 }
 
-// zmiana znaku na polu gracza na niezajete pole
-// poruszenie sie na nowe pole
-void move(int newRow, int newColumn)
+void changeState(bool& state)
 {
-	if (player1Turn) 
-	{
-		board[player1Row][player1Column] = field;
-		player1Row = newRow;
-		player1Column = newColumn;
-		board[player1Row][player1Column] = player1;
-	}
-	else 
-	{
-		board[player2Row][player2Column] = field;
-		player2Row = newRow;
-		player2Column = newColumn;
-		board[player2Row][player2Column] = player2;
-	}
-	
-	printBoard();
+	state = !state;
 }
 
-bool isMovePossible(int playerRow, int playerColumn)
+// true gdy znaleziono mozliwe pole
+bool findFieldsAround(int playerRow, int playerColumn)
 {
 	numOfPossibleMoves = 0;
 
@@ -105,9 +107,12 @@ bool isMovePossible(int playerRow, int playerColumn)
 	{
 		for (int j = playerColumn - 1; j < playerColumn + 2; j++)
 		{
-			if (isInBoard(i, j) && isValidField(i, j)) 
+			if (i == playerRow && j == playerColumn)
 			{
-				// zapis mozliwych ruchow dla AI
+				continue;
+			}
+			else if (isInBoard(i, j) && isValidField(i, j))
+			{
 				possibleRows[numOfPossibleMoves] = i;
 				possibleColumns[numOfPossibleMoves] = j;
 				numOfPossibleMoves++;
@@ -118,23 +123,60 @@ bool isMovePossible(int playerRow, int playerColumn)
 	return numOfPossibleMoves > 0;
 }
 
-int minimax(Node& node, int depth, bool maximizingPlayer)
+void move(int newRow, int newColumn)
 {
-	if (depth == 0 )// TODO)
+	if (player1Turn)
 	{
-		// TODO
-	}
-
-	if (maximizingPlayer)
-	{
-		// TODO
+		board[player1Row][player1Column] = field;
+		player1Row = newRow;
+		player1Column = newColumn;
+		board[player1Row][player1Column] = player1;
 	}
 	else
 	{
-		// TODO
+		board[player2Row][player2Column] = field;
+		player2Row = newRow;
+		player2Column = newColumn;
+		board[player2Row][player2Column] = player2;
 	}
 
-	return 0;
+	printBoard();
+}
+// playerRow, playerColumn OUT parameters
+void GetPlayerPos(int& playerRow, int& playerColumn, bool player)
+{
+	if (player)
+	{
+		playerRow = player1Row;
+		playerColumn = player1Column;
+	}
+	else
+	{
+		playerRow = player2Row;
+		playerColumn = player2Column;
+	}
+}
+
+bool isMovePossible()
+{
+	int playerRow, playerColumn;
+	GetPlayerPos(playerRow, playerColumn, player1Turn);
+
+	for (int i = playerRow - 1; i < playerRow + 2; i++)
+	{
+		for (int j = playerColumn - 1; j < playerColumn + 2; j++)
+		{
+			if (i == playerRow && j == playerColumn)
+			{
+				continue;
+			}
+			else if (isInBoard(i, j) && isValidField(i, j))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 bool canDestroy(int row, int column)
@@ -148,15 +190,6 @@ void destroy(int row, int column)
 	printBoard();
 }
 
-void printMsg() 
-{
-	const char* phaseName;
-	const char* playerName;
-	player1Turn ? playerName = "1" : playerName = "2";
-	movePhase ? phaseName = "poruszanie" : phaseName = "niszczenie";
-	printf("Gracz %s... %s\n", playerName, phaseName);
-}
-
 void setRandomField(int& row, int& column)
 {
 	srand((int)time(0));
@@ -164,22 +197,188 @@ void setRandomField(int& row, int& column)
 	row = possibleRows[randomIndex];
 	column = possibleColumns[randomIndex];
 }
+/********************* GRA NIE ZMIANIAC***********************************/
 
-// pobieranie pol w poblizu gracza
+/********************* ALGORYTMY ***********************************/
+
+Move getOldMove(bool player)
+{
+	if (player)
+	{
+		return Move{ player1Row, player1Column };
+	}
+	else
+	{
+		return Move{ player2Row, player2Column };
+	}
+
+}
+
+void movePlayer(Move move, bool player)
+{
+	if (player)
+	{
+		board[player1Row][player1Column] = field;
+		player1Row = move.row;
+		player1Column = move.column;
+		board[player1Row][player1Column] = player1;
+
+	}
+	else
+	{
+		board[player2Row][player2Column] = field;
+		player2Row = move.row;
+		player2Column = move.column;
+		board[player2Row][player2Column] = player2;
+	}
+
+	printBoard();
+}
+
+std::vector<Move> getAllMoves(bool maximizingPlayer)
+{
+	std::vector<Move> Moves;
+	int playerRow, playerColumn;
+	GetPlayerPos(playerRow, playerColumn, maximizingPlayer);
+
+	for (int i = playerRow - 1; i < playerRow + 2; i++)
+	{
+		for (int j = playerColumn - 1; j < playerColumn + 2; j++)
+		{
+			if (i == playerRow && j == playerColumn)
+			{
+				continue;
+			}
+			else if (isInBoard(i, j) && isValidField(i, j))
+			{
+				// zapis mozliwych ruchow dla AI
+				Move possibleMove{ i, j };
+				Moves.push_back(possibleMove);
+			}
+		}
+	}
+
+	return Moves;
+}
+
+int getValue(bool maximizingPlayer)
+{
+	// TODO get player pos
+	int playerRow, playerColumn, value = 0;
+	GetPlayerPos(playerRow, playerColumn, maximizingPlayer);
+
+	for (int i = playerRow - 1; i < playerRow + 2; i++)
+	{
+		for (int j = playerColumn - 1; j < playerColumn + 2; j++)
+		{
+			if (i == playerRow && j == playerColumn)
+			{
+				continue;
+			}
+			else if (isInBoard(i, j) && isValidField(i, j))
+			{
+				value++;
+			}
+		}
+	}
+
+	return value;
+}
+
+void debugMinimax(int depth, int numOfMoves)
+{
+	printf("***debugMinimaxEnter***\n");
+	printf("depth: %d\n", depth);
+	printf("numOfMoves: %d\n", numOfMoves);
+}
+
+// wynik to iloœæ mo¿liwych ruchow w danym ruchu
+int evaluate(bool maximizingPlayer)
+{
+	return getValue(maximizingPlayer);
+}
+
+int minimax(Move& bestMove, int depth, bool maximizingPlayer)
+{
+	std::vector<Move> Moves = getAllMoves(maximizingPlayer);
+	int numOfMoves = Moves.size();
+	debugMinimax(depth, numOfMoves);
+
+	if (numOfMoves > 1) // > 1 bo jak zostaje 1 ruch to jest on niszczony i w efekcie jest 0 ruchow
+	{
+		if (depth > 0)
+		{
+			if (maximizingPlayer)
+			{
+				int bestScore = INT_MIN;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = minimax(bestMove, depth - 1, false);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore > bestScore)
+					{
+						bestMove = move;
+						bestScore = newScore;
+					}
+				}
+				return bestScore;
+			}
+			else
+			{
+				int bestScore = INT_MAX;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = minimax(bestMove, depth - 1, true);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore < bestScore)
+					{
+						//bestMove = move; // zakomentowac
+						bestScore = newScore;
+					}
+				}
+				return bestScore;
+			}
+		}
+		else // depth == 0
+		{
+			return evaluate(maximizingPlayer);
+		}
+	}
+	else // end game
+	{
+		if (maximizingPlayer)
+		{
+			return INT_MIN;
+		}
+		else
+		{
+			return INT_MAX;
+		}
+	}
+}
+/********************* ALGORYTMY ***********************************/
+
+/********************* GRA NIE ZMIANIAC***********************************/
 void destroyRandomField(int& row, int& column)
 {
 	if (player1Turn)
 	{
-		if (!isMovePossible(player2Row, player2Column))
+		if (!findFieldsAround(player2Row, player2Column))
 		{
-			isMovePossible(player1Row, player1Column);
+			findFieldsAround(player1Row, player1Column);
 		}
 	}
 	else
 	{
-		if(!isMovePossible(player1Row, player1Column))
+		if (!findFieldsAround(player1Row, player1Column))
 		{
-			isMovePossible(player2Row, player2Column);
+			findFieldsAround(player2Row, player2Column);
 		}
 	}
 	setRandomField(row, column);
@@ -188,46 +387,67 @@ void destroyRandomField(int& row, int& column)
 void takeField(int& row, int& column)
 {
 	printMsg();
-	if (movePhase) 
+	if (movePhase)
 	{
-		if (player1Turn) 
+		if (player1Turn)
 		{
 			// tu wklepac kod do minimaxa i zakomentowac randoma
-			setRandomField(row, column);
+			tempGameState = { player1Row, player1Column, player2Row, player2Column };
+			Move bestMove{ player1Row, player1Column };
+			int value = minimax(bestMove, maxDepth, true);
+			row = bestMove.row;
+			column = bestMove.column;
+			printf("Po Minimax: best value: %d best move row: %d column: %d: \n", value, bestMove.row, bestMove.column);
+			// przed i po powinny byc takie same bo tu tylko wybiera sie najlepszy ruch do wykonania
+			printf("Przed Minimax Player 1 row: %d column: %d: \n", player1Row, player1Column);
+			printf("Przed Minimax Player 2 row: %d column: %d: \n", player2Row, player2Column);
+			if (player1Row == row && player1Column == column)
+			{
+				//printf("\n*******************BLAD RUCH W TYM SAMYM MIEJSCU***********************\n");
+				findFieldsAround(player1Row, player1Column);
+				setRandomField(row, column);
+			}
+			movePlayer(Move{ tempGameState.player1Row, tempGameState.player1Column }, true);
+			movePlayer(Move{ tempGameState.player2Row, tempGameState.player2Column }, false);
+			printf("Po Minimax Player 1 row: %d column: %d: \n", player1Row, player1Column);
+			printf("Po Minimax Player 2 row: %d column: %d: \n", player2Row, player2Column);
+			player1Turn = true;
+			//setRandomField(row, column);
 		}
-		else 
+		else
 		{
+			findFieldsAround(player2Row, player2Column);
 			setRandomField(row, column);
 		}
 	}
-	else 
+	else
 	{
 		destroyRandomField(row, column);
 	}
 
-	printf("Wiersz: %d\nKolumna: %d\n", row + 1, column + 1);
+	printf("Ruch do Wiersz: %d Kolumna: %d\n", row, column);
 }
 
-void changeState(bool& state)
+void endGame()
 {
-	state = !state;
-}
-
-void endGame() 
-{
-	char winner = player1Turn ? player2 : player1;
-	printf("WYGRANA: %c\n", winner);
+	if (player1Turn)
+	{
+		printf("WYGRANA: %c\n", player2);
+	}
+	else
+	{
+		printf("WYGRANA: %c\n", player1);
+		player1Wins++;
+	}
 	isGameOver = true;
 }
 
-void tryToMove(int playerRow, int playerColumn)
+void tryToMove()
 {
-	if (isMovePossible(playerRow, playerColumn))
+	if (isMovePossible())
 	{
-		// pole na ktore chesz sie poruszyc
 		int row, column;
 		takeField(row, column);
-		// poruszenie sie, zmiana fazy
 		move(row, column);
 		changeState(movePhase);
 	}
@@ -238,10 +458,8 @@ void tryToMove(int playerRow, int playerColumn)
 }
 void tryToDestroy()
 {
-	// pole ktore chesz zniszczyc
 	int row, column;
 	takeField(row, column);
-	// sprawdzenie czy poprawne, zniszczenie, zmiana fazy, zmiana gracza
 	if (canDestroy(row, column))
 	{
 		destroy(row, column);
@@ -250,25 +468,18 @@ void tryToDestroy()
 	}
 }
 
-void takeTurn() 
+void takeTurn()
 {
-	if (movePhase) 
-	{
-		player1Turn ? tryToMove(player1Row, player1Column) : tryToMove(player2Row, player2Column);
-	}
-	else 
-	{
-		tryToDestroy();
-	}
+	movePhase ? tryToMove() : tryToDestroy();
 }
 
-void setNumOfGames() 
+void setNumOfGames()
 {
 	printf("Podaj ilosc gier: ");
 	scanf_s("%d", &maxGames);
 }
 
-void resetGame() 
+void resetGame()
 {
 	player1Row = 2, player1Column = 0;
 	player2Row = 3, player2Column = 7;
@@ -278,21 +489,22 @@ void resetGame()
 	isGameOver = false;
 	numOfPossibleMoves = 0;
 
-	if (numOfGames < maxGames) 
+	if (numOfGames < maxGames)
 	{
 		initBoard();
 		printBoard();
 	}
 }
+/********************* GRA NIE ZMIANIAC***********************************/
 
 int main()
 {
-	// wybor ilosci gier, stworzenie planszy, wyprintowanie planszy
 	setNumOfGames();
 	initBoard();
 	printBoard();
-	// petla do grania
-	while (numOfGames < maxGames)
+	//takeTurn(); // dla sprawdzenia tylko jednej tury minimaxa odkomentowac ta linie i zakomentowac petle while
+
+	while (numOfGames < maxGames) // petla do grania
 	{
 		while (!isGameOver)
 		{
@@ -303,6 +515,9 @@ int main()
 		resetGame();
 	}
 
+	printf("ALGORYTM WYGRAL %d NA %d GIER\n", player1Wins, numOfGames);
+
 	return 0;
 }
+
 
