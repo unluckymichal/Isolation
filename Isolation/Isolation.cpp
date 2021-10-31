@@ -27,7 +27,7 @@ int numOfGames = 0;
 int maxGames = 0;
 int player1Wins = 0;
 // algorytmy
-int maxDepth = 4;
+int maxDepth = 3;
 
 struct GameState
 {
@@ -338,7 +338,6 @@ int minimax(Move& bestMove, int depth, bool maximizingPlayer)
 
 					if (newScore < bestScore)
 					{
-						//bestMove = move; // zakomentowac
 						bestScore = newScore;
 					}
 				}
@@ -362,6 +361,7 @@ int minimax(Move& bestMove, int depth, bool maximizingPlayer)
 		}
 	}
 }
+
 /********************* ALGORYTMY ***********************************/
 
 /********************* GRA NIE ZMIANIAC***********************************/
@@ -394,7 +394,8 @@ void takeField(int& row, int& column)
 			// tu wklepac kod do minimaxa i zakomentowac randoma
 			tempGameState = { player1Row, player1Column, player2Row, player2Column };
 			Move bestMove{ player1Row, player1Column };
-			int value = minimax(bestMove, maxDepth, true);
+			int value;
+			maxDepth % 2 == 0 ? value = minimax(bestMove, maxDepth, true) : value = minimax(bestMove, maxDepth, false);
 			row = bestMove.row;
 			column = bestMove.column;
 			printf("Po Minimax: best value: %d best move row: %d column: %d: \n", value, bestMove.row, bestMove.column);
