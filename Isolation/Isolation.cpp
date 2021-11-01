@@ -28,19 +28,22 @@ int player1Wins = 0;
 // algorytmy
 int maxDepth = 6;
 
+struct Move
+{
+	int row;
+	int column;
+};
+
 struct GameState
 {
 	int player1Row;
 	int player1Column;
 	int player2Row;
 	int player2Column;
+	Move bestMove;
 };
 
-struct Move
-{
-	int row;
-	int column;
-};
+GameState gameState{ player1Row, player1Column, player2Row, player2Column };
 
 /********************* GRA NIE ZMIANIAC***********************************/
 
@@ -234,7 +237,8 @@ std::vector<Move> getAllMoves(bool maximizingPlayer)
 	{
 		for (int j = playerColumn - 1; j < playerColumn + 2; j++)
 		{
-			if (i == playerRow && j == playerColumn)
+			// nie bierzemy pod uwage ruchow w tym samym miejscu lub gdy jest jeden ruch od poczatkowego miejsca i wybierzemy miejsce na ktorym stoimy
+			if ((i == playerRow && j == playerColumn))
 			{
 				continue;
 			}
@@ -247,6 +251,16 @@ std::vector<Move> getAllMoves(bool maximizingPlayer)
 	}
 
 	return Moves;
+}
+
+bool IsInCorner(int row, int column)
+{			//lewo gora           // prawo gora				// lewo dol					// prawo dol
+	return (row < 2 && column < 2) || (row < 2 && column > 5) || (row > 3 && column < 2) || (row > 3 && column > 5);
+}
+
+bool IsInCenter(int row, int column)
+{
+	return ((row >= 2 && row <= 3) && (column >= 2 && column <= 5));
 }
 
 int getValue(bool maximizingPlayer)
@@ -269,7 +283,18 @@ int getValue(bool maximizingPlayer)
 		}
 	}
 
-	return value;
+	if (IsInCenter(playerRow, playerColumn))
+	{
+		return value + 100;
+	}
+	else if (IsInCorner(playerRow, playerColumn))
+	{
+		return value - 100;
+	}
+	else
+	{
+		return value;
+	}
 }
 
 void debugMinimax(int depth, int numOfMoves)
@@ -285,7 +310,7 @@ int evaluate(bool maximizingPlayer)
 	return getValue(maximizingPlayer);
 }
 
-int minimax(Move& bestMove, int depth, bool maximizingPlayer)
+int minimax(GameState& gameState, int depth, bool maximizingPlayer)
 {
 	std::vector<Move> Moves = getAllMoves(maximizingPlayer);
 	int numOfMoves = Moves.size();
@@ -302,12 +327,15 @@ int minimax(Move& bestMove, int depth, bool maximizingPlayer)
 				{
 					Move oldMove{ getOldMove(maximizingPlayer) };
 					movePlayer(move, maximizingPlayer);
-					int newScore = minimax(bestMove, depth - 1, false);
+					int newScore = minimax(gameState, depth - 1, false);
 					movePlayer(oldMove, maximizingPlayer);
 
 					if (newScore > bestScore)
 					{
-						bestMove = move;
+						if (maxDepth - depth <= 1)
+						{
+							gameState.bestMove = move;
+						}
 						bestScore = newScore;
 					}
 				}
@@ -320,7 +348,7 @@ int minimax(Move& bestMove, int depth, bool maximizingPlayer)
 				{
 					Move oldMove{ getOldMove(maximizingPlayer) };
 					movePlayer(move, maximizingPlayer);
-					int newScore = minimax(bestMove, depth - 1, true);
+					int newScore = minimax(gameState, depth - 1, true);
 					movePlayer(oldMove, maximizingPlayer);
 
 					if (newScore < bestScore)
@@ -333,6 +361,29 @@ int minimax(Move& bestMove, int depth, bool maximizingPlayer)
 		}
 		else // depth == 0
 		{
+			if (maxDepth <= 1)
+			{
+				int bestScore = INT_MIN;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = evaluate(maximizingPlayer);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore > bestScore)
+					{
+						gameState.bestMove = move;
+						bestScore = newScore;
+
+					}
+				}
+				if (maxDepth == 0)
+				{
+					return bestScore;
+				}
+			}
+
 			return evaluate(maximizingPlayer);
 		}
 	}
@@ -371,23 +422,22 @@ void takeField(int& row, int& column)
 	{
 		if (player1Turn)
 		{
-			GameState tempGameState{ player1Row, player1Column, player2Row, player2Column };
-			Move bestMove{ player1Row, player1Column };
+			gameState = { player1Row, player1Column, player2Row, player2Column, Move{player1Row, player1Column} };
 			int value;
 
-			maxDepth % 2 == 0 ? value = minimax(bestMove, maxDepth, true) : value = minimax(bestMove, maxDepth, false);
-			row = bestMove.row;
-			column = bestMove.column;
+			maxDepth % 2 == 0 ? value = minimax(gameState, maxDepth, true) : value = minimax(gameState, maxDepth, false);
+			row = gameState.bestMove.row;
+			column = gameState.bestMove.column;
 
-			printf("Po Minimax: best value: %d best move row: %d column: %d: \n", value, bestMove.row, bestMove.column);
-			if (player1Row == row && player1Column == column)
+			printf("Po Minimax: best value: %d best move row: %d column: %d: \n", value, gameState.bestMove.row, gameState.bestMove.column);
+			if (gameState.player1Row == row && gameState.player1Column == column)
 			{
 				findFieldsAround(player1Row, player1Column);
 				setRandomField(row, column);
 			}
 
-			movePlayer(Move{ tempGameState.player1Row, tempGameState.player1Column }, true);
-			movePlayer(Move{ tempGameState.player2Row, tempGameState.player2Column }, false);
+			movePlayer(Move{ gameState.player1Row, gameState.player1Column }, true);
+			movePlayer(Move{ gameState.player2Row, gameState.player2Column }, false);
 			player1Turn = true;
 		}
 		else
@@ -451,7 +501,7 @@ void takeTurn()
 
 void setGameConfig()
 {
-	printf("Podaj ilosc gier: ");
+	printf("Podaj liczbe gier: ");
 	scanf_s("%d", &maxGames);
 
 	printf("Podaj glebokosc dla algorytmu: ");
