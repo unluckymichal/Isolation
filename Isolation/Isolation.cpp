@@ -1,7 +1,6 @@
 #include <stdio.h> // print
 #include <stdlib.h> //abs
 #include <ctime>  // do randoma
-#include <algorithm> // std::max
 #include <vector>  // do przechowywania ruchow
 
 // ustawienia planszy
@@ -27,7 +26,7 @@ int numOfGames = 0;
 int maxGames = 0;
 int player1Wins = 0;
 // algorytmy
-int maxDepth = 3;
+int maxDepth = 6;
 
 struct GameState
 {
@@ -36,8 +35,6 @@ struct GameState
 	int player2Row;
 	int player2Column;
 };
-
-GameState tempGameState{ player1Row, player1Column, player2Row, player2Column };
 
 struct Move
 {
@@ -203,15 +200,7 @@ void setRandomField(int& row, int& column)
 
 Move getOldMove(bool player)
 {
-	if (player)
-	{
-		return Move{ player1Row, player1Column };
-	}
-	else
-	{
-		return Move{ player2Row, player2Column };
-	}
-
+	return player ? Move{ player1Row, player1Column } : Move{ player2Row, player2Column };
 }
 
 void movePlayer(Move move, bool player)
@@ -232,7 +221,7 @@ void movePlayer(Move move, bool player)
 		board[player2Row][player2Column] = player2;
 	}
 
-	printBoard();
+	//printBoard();
 }
 
 std::vector<Move> getAllMoves(bool maximizingPlayer)
@@ -251,7 +240,6 @@ std::vector<Move> getAllMoves(bool maximizingPlayer)
 			}
 			else if (isInBoard(i, j) && isValidField(i, j))
 			{
-				// zapis mozliwych ruchow dla AI
 				Move possibleMove{ i, j };
 				Moves.push_back(possibleMove);
 			}
@@ -263,7 +251,6 @@ std::vector<Move> getAllMoves(bool maximizingPlayer)
 
 int getValue(bool maximizingPlayer)
 {
-	// TODO get player pos
 	int playerRow, playerColumn, value = 0;
 	GetPlayerPos(playerRow, playerColumn, maximizingPlayer);
 
@@ -287,7 +274,7 @@ int getValue(bool maximizingPlayer)
 
 void debugMinimax(int depth, int numOfMoves)
 {
-	printf("***debugMinimaxEnter***\n");
+	printf("***debugMinimax***\n");
 	printf("depth: %d\n", depth);
 	printf("numOfMoves: %d\n", numOfMoves);
 }
@@ -302,7 +289,7 @@ int minimax(Move& bestMove, int depth, bool maximizingPlayer)
 {
 	std::vector<Move> Moves = getAllMoves(maximizingPlayer);
 	int numOfMoves = Moves.size();
-	debugMinimax(depth, numOfMoves);
+	//debugMinimax(depth, numOfMoves);
 
 	if (numOfMoves > 1) // > 1 bo jak zostaje 1 ruch to jest on niszczony i w efekcie jest 0 ruchow
 	{
@@ -351,14 +338,7 @@ int minimax(Move& bestMove, int depth, bool maximizingPlayer)
 	}
 	else // end game
 	{
-		if (maximizingPlayer)
-		{
-			return INT_MIN;
-		}
-		else
-		{
-			return INT_MAX;
-		}
+		return maximizingPlayer ? INT_MIN : INT_MAX;
 	}
 }
 
@@ -391,29 +371,24 @@ void takeField(int& row, int& column)
 	{
 		if (player1Turn)
 		{
-			// tu wklepac kod do minimaxa i zakomentowac randoma
-			tempGameState = { player1Row, player1Column, player2Row, player2Column };
+			GameState tempGameState{ player1Row, player1Column, player2Row, player2Column };
 			Move bestMove{ player1Row, player1Column };
 			int value;
+
 			maxDepth % 2 == 0 ? value = minimax(bestMove, maxDepth, true) : value = minimax(bestMove, maxDepth, false);
 			row = bestMove.row;
 			column = bestMove.column;
+
 			printf("Po Minimax: best value: %d best move row: %d column: %d: \n", value, bestMove.row, bestMove.column);
-			// przed i po powinny byc takie same bo tu tylko wybiera sie najlepszy ruch do wykonania
-			printf("Przed Minimax Player 1 row: %d column: %d: \n", player1Row, player1Column);
-			printf("Przed Minimax Player 2 row: %d column: %d: \n", player2Row, player2Column);
 			if (player1Row == row && player1Column == column)
 			{
-				//printf("\n*******************BLAD RUCH W TYM SAMYM MIEJSCU***********************\n");
 				findFieldsAround(player1Row, player1Column);
 				setRandomField(row, column);
 			}
+
 			movePlayer(Move{ tempGameState.player1Row, tempGameState.player1Column }, true);
 			movePlayer(Move{ tempGameState.player2Row, tempGameState.player2Column }, false);
-			printf("Po Minimax Player 1 row: %d column: %d: \n", player1Row, player1Column);
-			printf("Po Minimax Player 2 row: %d column: %d: \n", player2Row, player2Column);
 			player1Turn = true;
-			//setRandomField(row, column);
 		}
 		else
 		{
@@ -474,10 +449,13 @@ void takeTurn()
 	movePhase ? tryToMove() : tryToDestroy();
 }
 
-void setNumOfGames()
+void setGameConfig()
 {
 	printf("Podaj ilosc gier: ");
 	scanf_s("%d", &maxGames);
+
+	printf("Podaj glebokosc dla algorytmu: ");
+	scanf_s("%d", &maxDepth);
 }
 
 void resetGame()
@@ -500,7 +478,7 @@ void resetGame()
 
 int main()
 {
-	setNumOfGames();
+	setGameConfig();
 	initBoard();
 	printBoard();
 	//takeTurn(); // dla sprawdzenia tylko jednej tury minimaxa odkomentowac ta linie i zakomentowac petle while
