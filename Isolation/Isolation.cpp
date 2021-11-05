@@ -27,6 +27,9 @@ int maxGames = 0;
 int player1Wins = 0;
 // algorytmy
 int maxDepth = 6;
+const int MINIMAX = 1;
+const int NEGAMAX = 2;
+int algorithm = -99;
 
 struct Move
 {
@@ -289,11 +292,11 @@ int getValue(bool maximizingPlayer)
 	}
 	else if (IsInCorner(playerRow, playerColumn))
 	{
-		return value - 100;
+		return value;
 	}
 	else
 	{
-		return value;
+		return value + 10;
 	}
 }
 
@@ -375,7 +378,6 @@ int minimax(GameState& gameState, int depth, bool maximizingPlayer)
 					{
 						gameState.bestMove = move;
 						bestScore = newScore;
-
 					}
 				}
 				if (maxDepth == 0)
@@ -390,6 +392,68 @@ int minimax(GameState& gameState, int depth, bool maximizingPlayer)
 	else // end game
 	{
 		return maximizingPlayer ? INT_MIN : INT_MAX;
+	}
+}
+
+int negamax(GameState& gameState, int depth, int sign)
+{
+	std::vector<Move> Moves = getAllMoves(sign == 1);
+	int numOfMoves = Moves.size();
+	//debugMinimax(depth, numOfMoves);
+
+	if (numOfMoves > 1) // > 1 bo jak zostaje 1 ruch to jest on niszczony i w efekcie jest 0 ruchow
+	{
+		if (depth > 0)
+		{
+			int bestScore = INT_MIN;
+			for (auto move : Moves)
+			{
+				Move oldMove{ getOldMove(sign == 1) };
+				movePlayer(move, sign == 1);
+				int newScore = -negamax(gameState, depth - 1, -sign);
+				movePlayer(oldMove, sign == 1);
+
+				if (newScore > bestScore)
+				{
+					if (maxDepth - depth <= 1)
+					{
+						gameState.bestMove = move;
+					}
+					bestScore = newScore;
+				}
+			}
+			return bestScore;
+		}
+		else // depth == 0
+		{
+			if (maxDepth <= 1)
+			{
+				int bestScore = INT_MIN;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(sign == 1) };
+					movePlayer(move, sign == 1);
+					int newScore = evaluate(sign == 1);
+					movePlayer(oldMove, sign == 1);
+
+					if (newScore > bestScore)
+					{
+						gameState.bestMove = move;
+						bestScore = newScore;
+					}
+				}
+				if (maxDepth == 0)
+				{
+					return bestScore;
+				}
+			}
+
+			return sign * evaluate(sign == 1);
+		}
+	}
+	else // end game
+	{
+		return sign == 1 ? sign * INT_MIN : sign * INT_MAX;
 	}
 }
 
@@ -422,14 +486,22 @@ void takeField(int& row, int& column)
 	{
 		if (player1Turn)
 		{
-			gameState = { player1Row, player1Column, player2Row, player2Column, Move{player1Row, player1Column} };
 			int value;
+			gameState = { player1Row, player1Column, player2Row, player2Column, Move{player1Row, player1Column} };
+			
+			if (algorithm == MINIMAX) 
+			{
+				maxDepth % 2 == 0 ? value = minimax(gameState, maxDepth, true) : value = minimax(gameState, maxDepth, false);
+			}
+			else if (algorithm == NEGAMAX) 
+			{
+				maxDepth % 2 == 0 ? value = negamax(gameState, maxDepth, 1) : value = negamax(gameState, maxDepth, -1);
+			}
 
-			maxDepth % 2 == 0 ? value = minimax(gameState, maxDepth, true) : value = minimax(gameState, maxDepth, false);
+			printf("Best value: %d best move row: %d column: %d: \n", value, gameState.bestMove.row, gameState.bestMove.column);
 			row = gameState.bestMove.row;
 			column = gameState.bestMove.column;
 
-			printf("Po Minimax: best value: %d best move row: %d column: %d: \n", value, gameState.bestMove.row, gameState.bestMove.column);
 			if (gameState.player1Row == row && gameState.player1Column == column)
 			{
 				findFieldsAround(player1Row, player1Column);
@@ -503,6 +575,9 @@ void setGameConfig()
 {
 	printf("Podaj liczbe gier: ");
 	scanf_s("%d", &maxGames);
+
+	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n");
+	scanf_s("%d", &algorithm);
 
 	printf("Podaj glebokosc dla algorytmu: ");
 	scanf_s("%d", &maxDepth);
