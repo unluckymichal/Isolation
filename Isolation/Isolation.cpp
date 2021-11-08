@@ -410,12 +410,13 @@ int negamax(GameState& gameState, int depth, int sign)
 			{
 				Move oldMove{ getOldMove(sign == 1) };
 				movePlayer(move, sign == 1);
-				int newScore = -negamax(gameState, depth - 1, -sign);
+				int newScore;
+				sign == 1? newScore = -negamax(gameState, depth - 1, -1) : newScore = -negamax(gameState, depth - 1, 1);
 				movePlayer(oldMove, sign == 1);
-
+				
 				if (newScore > bestScore)
 				{
-					if (maxDepth - depth <= 1)
+					if (maxDepth - depth <= 1 && sign == 1)
 					{
 						gameState.bestMove = move;
 					}
