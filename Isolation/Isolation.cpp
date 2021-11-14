@@ -2,6 +2,9 @@
 #include <stdlib.h> //abs
 #include <ctime>  // do randoma
 #include <vector>  // do przechowywania ruchow
+#include <chrono> // do czasu funkcji
+
+using namespace std::chrono;
 
 // ustawienia planszy
 const int rows = 6;
@@ -29,6 +32,7 @@ int player1Wins = 0;
 int maxDepth = 6;
 const int MINIMAX = 1;
 const int NEGAMAX = 2;
+const int ALPHABETA = 3;
 int algorithm = -99;
 
 struct Move
@@ -300,24 +304,193 @@ int getValue(bool maximizingPlayer)
 	}
 }
 
-void debugMinimax(int depth, int numOfMoves)
-{
-	printf("***debugMinimax***\n");
-	printf("depth: %d\n", depth);
-	printf("numOfMoves: %d\n", numOfMoves);
-}
-
 // wynik to iloœæ mo¿liwych ruchow w danym ruchu
 int evaluate(bool maximizingPlayer)
 {
 	return getValue(maximizingPlayer);
 }
 
+int alphabeta(GameState& gameState, int depth, bool maximizingPlayer, int alpha, int beta)
+{
+	int a = alpha;
+	int b = beta;
+
+	std::vector<Move> Moves = getAllMoves(maximizingPlayer);
+	int numOfMoves = Moves.size();
+
+	if (numOfMoves > 1) // > 1 bo jak zostaje 1 ruch to jest on niszczony i w efekcie jest 0 ruchow
+	{
+		if (depth > 0)
+		{
+			if (maximizingPlayer)
+			{
+				int bestScore = INT_MIN;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = alphabeta(gameState, depth - 1, false, a, b);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore > bestScore)
+					{
+						if (maxDepth - depth <= 1)
+						{
+							gameState.bestMove = move;
+						}
+						bestScore = newScore;
+					}
+
+					if (newScore >= b) 
+					{
+						break;
+					}
+
+					if (newScore > a)
+					{
+						a = newScore;
+					}
+
+				}
+				return bestScore;
+			}
+			else
+			{
+				int bestScore = INT_MAX;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = alphabeta(gameState, depth - 1, true, a, b);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore < bestScore)
+					{
+						bestScore = newScore;
+					}
+
+					if (newScore <= a)
+					{
+						break;
+					}
+
+					if (newScore < b)
+					{
+						b = newScore;
+					}
+				}
+				return bestScore;
+			}
+		}
+		else // depth == 0
+		{
+			if (maxDepth <= 1)
+			{
+				int bestScore = INT_MIN;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = evaluate(maximizingPlayer);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore > bestScore)
+					{
+						gameState.bestMove = move;
+						bestScore = newScore;
+					}
+
+					if (newScore >= b)
+					{
+						break;
+					}
+
+					if (newScore > a)
+					{
+						a = newScore;
+					}
+				}
+				if (maxDepth == 0)
+				{
+					return bestScore;
+				}
+			}
+
+			return evaluate(maximizingPlayer);
+		}
+	}
+	else // end game
+	{
+		return maximizingPlayer ? INT_MIN : INT_MAX;
+	}
+}
+
+int negamax(GameState& gameState, int depth, int sign)
+{
+	std::vector<Move> Moves = getAllMoves(sign == 1);
+	int numOfMoves = Moves.size();
+
+	if (numOfMoves > 1) // > 1 bo jak zostaje 1 ruch to jest on niszczony i w efekcie jest 0 ruchow
+	{
+		if (depth > 0)
+		{
+			int bestScore = INT_MIN;
+			for (auto move : Moves)
+			{
+				Move oldMove{ getOldMove(sign == 1) };
+				movePlayer(move, sign == 1);
+				int newScore;
+				sign == 1? newScore = -negamax(gameState, depth - 1, -1) : newScore = -negamax(gameState, depth - 1, 1);
+				movePlayer(oldMove, sign == 1);
+				
+				if (newScore > bestScore)
+				{
+					if (maxDepth - depth <= 1 && sign == 1)
+					{
+						gameState.bestMove = move;
+					}
+					bestScore = newScore;
+				}
+			}
+			return bestScore;
+		}
+		else // depth == 0
+		{
+			if (maxDepth <= 1)
+			{
+				int bestScore = INT_MIN;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(sign == 1) };
+					movePlayer(move, sign == 1);
+					int newScore = evaluate(sign == 1);
+					movePlayer(oldMove, sign == 1);
+
+					if (newScore > bestScore)
+					{
+						gameState.bestMove = move;
+						bestScore = newScore;
+					}
+				}
+				if (maxDepth == 0)
+				{
+					return bestScore;
+				}
+			}
+
+			return sign * evaluate(sign == 1);
+		}
+	}
+	else // end game
+	{
+		return sign == 1 ? sign * INT_MIN : sign * INT_MAX;
+	}
+}
+
 int minimax(GameState& gameState, int depth, bool maximizingPlayer)
 {
 	std::vector<Move> Moves = getAllMoves(maximizingPlayer);
 	int numOfMoves = Moves.size();
-	//debugMinimax(depth, numOfMoves);
 
 	if (numOfMoves > 1) // > 1 bo jak zostaje 1 ruch to jest on niszczony i w efekcie jest 0 ruchow
 	{
@@ -395,69 +568,6 @@ int minimax(GameState& gameState, int depth, bool maximizingPlayer)
 	}
 }
 
-int negamax(GameState& gameState, int depth, int sign)
-{
-	std::vector<Move> Moves = getAllMoves(sign == 1);
-	int numOfMoves = Moves.size();
-	//debugMinimax(depth, numOfMoves);
-
-	if (numOfMoves > 1) // > 1 bo jak zostaje 1 ruch to jest on niszczony i w efekcie jest 0 ruchow
-	{
-		if (depth > 0)
-		{
-			int bestScore = INT_MIN;
-			for (auto move : Moves)
-			{
-				Move oldMove{ getOldMove(sign == 1) };
-				movePlayer(move, sign == 1);
-				int newScore;
-				sign == 1? newScore = -negamax(gameState, depth - 1, -1) : newScore = -negamax(gameState, depth - 1, 1);
-				movePlayer(oldMove, sign == 1);
-				
-				if (newScore > bestScore)
-				{
-					if (maxDepth - depth <= 1 && sign == 1)
-					{
-						gameState.bestMove = move;
-					}
-					bestScore = newScore;
-				}
-			}
-			return bestScore;
-		}
-		else // depth == 0
-		{
-			if (maxDepth <= 1)
-			{
-				int bestScore = INT_MIN;
-				for (auto move : Moves)
-				{
-					Move oldMove{ getOldMove(sign == 1) };
-					movePlayer(move, sign == 1);
-					int newScore = evaluate(sign == 1);
-					movePlayer(oldMove, sign == 1);
-
-					if (newScore > bestScore)
-					{
-						gameState.bestMove = move;
-						bestScore = newScore;
-					}
-				}
-				if (maxDepth == 0)
-				{
-					return bestScore;
-				}
-			}
-
-			return sign * evaluate(sign == 1);
-		}
-	}
-	else // end game
-	{
-		return sign == 1 ? sign * INT_MIN : sign * INT_MAX;
-	}
-}
-
 /********************* ALGORYTMY ***********************************/
 
 /********************* GRA NIE ZMIANIAC***********************************/
@@ -497,6 +607,10 @@ void takeField(int& row, int& column)
 			else if (algorithm == NEGAMAX) 
 			{
 				maxDepth % 2 == 0 ? value = negamax(gameState, maxDepth, 1) : value = negamax(gameState, maxDepth, -1);
+			}
+			else if (algorithm == ALPHABETA)
+			{
+				maxDepth % 2 == 0 ? value = alphabeta(gameState, maxDepth, true, INT_MIN, INT_MAX) : value = alphabeta(gameState, maxDepth, false, INT_MIN, INT_MAX);
 			}
 
 			printf("Best value: %d best move row: %d column: %d: \n", value, gameState.bestMove.row, gameState.bestMove.column);
@@ -577,7 +691,7 @@ void setGameConfig()
 	printf("Podaj liczbe gier: ");
 	scanf_s("%d", &maxGames);
 
-	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n");
+	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n3 - AlphaBeta\n");
 	scanf_s("%d", &algorithm);
 
 	printf("Podaj glebokosc dla algorytmu: ");
@@ -607,7 +721,8 @@ int main()
 	setGameConfig();
 	initBoard();
 	printBoard();
-	//takeTurn(); // dla sprawdzenia tylko jednej tury minimaxa odkomentowac ta linie i zakomentowac petle while
+
+	auto start = high_resolution_clock::now();
 
 	while (numOfGames < maxGames) // petla do grania
 	{
@@ -620,7 +735,11 @@ int main()
 		resetGame();
 	}
 
+	auto stop = high_resolution_clock::now();
+	auto duration = duration_cast<seconds>(stop - start);
+
 	printf("ALGORYTM WYGRAL %d NA %d GIER\n", player1Wins, numOfGames);
+	printf("CZAS ROZEGRANIA GIER %d SEKUND\n", duration.count());
 
 	return 0;
 }

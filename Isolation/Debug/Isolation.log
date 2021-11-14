@@ -1,2 +1,9 @@
 ﻿  Isolation.cpp
+D:\VS Projects\Isolation\Isolation\Isolation.cpp(742,9): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 1 has type '_Rep'
+          with
+          [
+              _Rep=__int64
+          ]
+D:\VS Projects\Isolation\Isolation\Isolation.cpp(742,9): message : consider using '%lld' in the format string
+D:\VS Projects\Isolation\Isolation\Isolation.cpp(742,9): message : consider using '%I64d' in the format string
   Isolation.vcxproj -> D:\VS Projects\Isolation\Debug\Isolation.exe
