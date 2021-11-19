@@ -3,6 +3,7 @@
 #include <ctime>  // do randoma
 #include <vector>  // do przechowywania ruchow
 #include <chrono> // do czasu funkcji
+#include <map>	// do sortowania
 
 using namespace std::chrono;
 
@@ -28,11 +29,14 @@ int numOfPossibleMoves = 0;
 int numOfGames = 0;
 int maxGames = 0;
 int player1Wins = 0;
+int numOfAlgorithms = 0;
+microseconds durationOfAlgorithms{0};
 // algorytmy
 int maxDepth = 6;
 const int MINIMAX = 1;
 const int NEGAMAX = 2;
 const int ALPHABETA = 3;
+const int ALPHABETA_SORT = 4;
 int algorithm = -99;
 
 struct Move
@@ -310,6 +314,164 @@ int evaluate(bool maximizingPlayer)
 	return getValue(maximizingPlayer);
 }
 
+int alphabetaWithSorting(GameState& gameState, int depth, bool maximizingPlayer, int alpha, int beta)
+{
+	int a = alpha;
+	int b = beta;
+
+	std::vector<Move> Moves = getAllMoves(maximizingPlayer);
+	int numOfMoves = Moves.size();
+
+	if (numOfMoves > 1) // > 1 bo jak zostaje 1 ruch to jest on niszczony i w efekcie jest 0 ruchow
+	{
+		if (depth > 0)
+		{
+			std::map<int, Move> moveValues;
+			for (auto move : Moves)
+			{
+				Move oldMove{ getOldMove(maximizingPlayer) };
+				movePlayer(move, maximizingPlayer);
+				int value = evaluate(maximizingPlayer);
+				movePlayer(oldMove, maximizingPlayer);
+
+				// mapa sortuje sie sama w kolejnosci rosnacej
+				moveValues.insert(std::pair<int, Move>(value, move));
+			}
+
+			Moves.clear();
+
+			if (maximizingPlayer)
+			{
+				for (std::map<int, Move>::reverse_iterator it = moveValues.rbegin(); it != moveValues.rend(); ++it)
+				{
+					Moves.push_back(it->second);
+				}
+
+				int bestScore = INT_MIN;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = alphabetaWithSorting(gameState, depth - 1, false, a, b);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore > bestScore)
+					{
+						if (maxDepth - depth <= 1)
+						{
+							gameState.bestMove = move;
+						}
+						bestScore = newScore;
+					}
+
+					if (newScore >= b) 
+					{
+						break;
+					}
+
+					if (newScore > a)
+					{
+						a = newScore;
+					}
+
+				}
+				return bestScore;
+			}
+			else
+			{
+				for (std::map<int, Move>::iterator it = moveValues.begin(); it != moveValues.end(); ++it)
+				{
+					Moves.push_back(it->second);
+				}
+
+				int bestScore = INT_MAX;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = alphabetaWithSorting(gameState, depth - 1, true, a, b);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore < bestScore)
+					{
+						bestScore = newScore;
+					}
+
+					if (newScore <= a)
+					{
+						break;
+					}
+
+					if (newScore < b)
+					{
+						b = newScore;
+					}
+				}
+				return bestScore;
+			}
+		}
+		else // depth == 0
+		{
+			if (maxDepth <= 1)
+			{
+				std::map<int, Move> moveValues;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int value = evaluate(maximizingPlayer);
+					movePlayer(oldMove, maximizingPlayer);
+
+					// mapa sortuje sie sama w kolejnosci rosnacej
+					moveValues.insert(std::pair<int, Move>(value, move));
+				}
+
+				Moves.clear();
+
+				for (std::map<int, Move>::reverse_iterator it = moveValues.rbegin(); it != moveValues.rend(); ++it)
+				{
+					Moves.push_back(it->second);
+				}
+
+				int bestScore = INT_MIN;
+				for (auto move : Moves)
+				{
+					Move oldMove{ getOldMove(maximizingPlayer) };
+					movePlayer(move, maximizingPlayer);
+					int newScore = evaluate(maximizingPlayer);
+					movePlayer(oldMove, maximizingPlayer);
+
+					if (newScore > bestScore)
+					{
+						gameState.bestMove = move;
+						bestScore = newScore;
+					}
+
+					if (newScore >= b)
+					{
+						break;
+					}
+
+					if (newScore > a)
+					{
+						a = newScore;
+					}
+				}
+				if (maxDepth == 0)
+				{
+					return bestScore;
+				}
+			}
+
+			return evaluate(maximizingPlayer);
+		}
+	}
+	else // end game
+	{
+		return maximizingPlayer ? INT_MIN : INT_MAX;
+	}
+}
+
 int alphabeta(GameState& gameState, int depth, bool maximizingPlayer, int alpha, int beta)
 {
 	int a = alpha;
@@ -341,7 +503,7 @@ int alphabeta(GameState& gameState, int depth, bool maximizingPlayer, int alpha,
 						bestScore = newScore;
 					}
 
-					if (newScore >= b) 
+					if (newScore >= b)
 					{
 						break;
 					}
@@ -600,6 +762,8 @@ void takeField(int& row, int& column)
 			int value;
 			gameState = { player1Row, player1Column, player2Row, player2Column, Move{player1Row, player1Column} };
 			
+			auto start = high_resolution_clock::now();
+
 			if (algorithm == MINIMAX) 
 			{
 				maxDepth % 2 == 0 ? value = minimax(gameState, maxDepth, true) : value = minimax(gameState, maxDepth, false);
@@ -612,6 +776,15 @@ void takeField(int& row, int& column)
 			{
 				maxDepth % 2 == 0 ? value = alphabeta(gameState, maxDepth, true, INT_MIN, INT_MAX) : value = alphabeta(gameState, maxDepth, false, INT_MIN, INT_MAX);
 			}
+			else if (algorithm == ALPHABETA_SORT)
+			{
+				maxDepth % 2 == 0 ? value = alphabetaWithSorting(gameState, maxDepth, true, INT_MIN, INT_MAX) : value = alphabetaWithSorting(gameState, maxDepth, false, INT_MIN, INT_MAX);
+			}
+
+			auto stop = high_resolution_clock::now();
+			auto duration = duration_cast<microseconds>(stop - start);
+			numOfAlgorithms++;
+			durationOfAlgorithms += duration;
 
 			printf("Best value: %d best move row: %d column: %d: \n", value, gameState.bestMove.row, gameState.bestMove.column);
 			row = gameState.bestMove.row;
@@ -691,7 +864,7 @@ void setGameConfig()
 	printf("Podaj liczbe gier: ");
 	scanf_s("%d", &maxGames);
 
-	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n3 - AlphaBeta\n");
+	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n3 - AlphaBeta\n4 - AlphaBeta z sortowaniem\n");
 	scanf_s("%d", &algorithm);
 
 	printf("Podaj glebokosc dla algorytmu: ");
@@ -722,8 +895,6 @@ int main()
 	initBoard();
 	printBoard();
 
-	auto start = high_resolution_clock::now();
-
 	while (numOfGames < maxGames) // petla do grania
 	{
 		while (!isGameOver)
@@ -735,11 +906,8 @@ int main()
 		resetGame();
 	}
 
-	auto stop = high_resolution_clock::now();
-	auto duration = duration_cast<seconds>(stop - start);
-
 	printf("ALGORYTM WYGRAL %d NA %d GIER\n", player1Wins, numOfGames);
-	printf("CZAS ROZEGRANIA GIER %d SEKUND\n", duration.count());
+	printf("SREDNI CZAS ALGORYTMU %d mikrosekund\n", (int)durationOfAlgorithms.count() / numOfAlgorithms);
 
 	return 0;
 }
