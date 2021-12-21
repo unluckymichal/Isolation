@@ -25,11 +25,15 @@ bool isGameOver = false;
 int possibleRows[8];
 int possibleColumns[8];
 int numOfPossibleMoves = 0;
+const int turnsToLunchPNS = 8;
+int maxResources = 999;
+int resources = 0;
 // statystyki
 int numOfGames = 0;
 int maxGames = 0;
 int player1Wins = 0;
 int numOfAlgorithms = 0;
+int numOfAlgorithmsOneGame = 0;
 microseconds durationOfAlgorithms{0};
 // algorytmy
 int maxDepth = 6;
@@ -37,6 +41,7 @@ const int MINIMAX = 1;
 const int NEGAMAX = 2;
 const int ALPHABETA = 3;
 const int ALPHABETA_SORT = 4;
+const int PNS = 5;
 int algorithm = -99;
 
 struct Move
@@ -55,6 +60,31 @@ struct GameState
 };
 
 GameState gameState{ player1Row, player1Column, player2Row, player2Column };
+
+enum Type
+{
+	AND,
+	OR
+};
+
+enum State
+{
+	UNKNOWN,
+	WIN,
+	LOSE
+};
+
+struct Node 
+{
+	Move move;
+	Node* parent;
+	std::vector<Node* > children;
+	int proof = 0;
+	int disproof = 0;
+	bool isExpanded = false;
+	State state;
+	Type type; 
+};
 
 /********************* GRA NIE ZMIANIAC***********************************/
 
@@ -308,7 +338,6 @@ int getValue(bool maximizingPlayer)
 	}
 }
 
-// wynik to iloœæ mo¿liwych ruchow w danym ruchu
 int evaluate(bool maximizingPlayer)
 {
 	return getValue(maximizingPlayer);
@@ -730,6 +759,227 @@ int minimax(GameState& gameState, int depth, bool maximizingPlayer)
 	}
 }
 
+bool resourcesAvailable()
+{
+	resources++;
+	return resources < maxResources;
+}
+
+void resetResources()
+{
+	resources = 0;
+}
+
+void generateChildren(Node* node, bool maximizingPlayer)
+{
+	for (auto move : getAllMoves(maximizingPlayer))
+	{
+		Node* child = new Node();
+		child->move = move;
+		child->type = node->type == Type::AND ? Type::OR : Type::AND;
+		child->parent = node;
+
+		node->children.push_back(child);
+	}
+}
+
+Node* selectBestMove(Node* root)
+{
+	if (root->children.size() == 0) 
+	{
+		return nullptr;
+	}
+
+	float value = 0;
+	Node* bestNode = nullptr;
+
+	for (Node* child : root->children)
+	{
+		float childValue = (float)child->disproof / (float)child->proof;
+		if (childValue > value)
+		{
+			value = childValue;
+			bestNode = child;
+		}
+	}
+
+	return bestNode;
+}
+
+Node* selectMostProvingNode(Node* node)
+{
+	while (node->isExpanded)
+	{
+		int value = INT_MAX;
+		Node* bestNode = nullptr;
+
+		if (node->type == Type::AND)
+		{
+			for (Node* child : node->children)
+				if (value > child->disproof)
+				{
+					bestNode = child;
+					value = child->disproof;
+				}
+		}
+		else
+		{
+			for (Node* child : node->children)
+				if (value > child->proof)
+				{
+					bestNode = child;
+					value = child->proof;
+				}
+		}
+
+		node = bestNode;
+	}
+
+	return node;
+}
+
+void setProofAndDisproofNumbers(Node* node, bool player)
+{
+	if (node->isExpanded)
+	{
+		if (node->type == Type::AND)
+		{
+			node->proof = 0;
+			node->disproof = INT_MAX;
+
+			for (Node* child : node->children)
+			{
+				if (child->proof == INT_MAX)
+				{
+					node->proof = INT_MAX;
+				}
+				else if (node->proof != INT_MAX)
+				{
+					node->proof += child->proof;
+				}
+				node->disproof = std::min(node->disproof, child->disproof);
+			}
+		}
+		else
+		{
+			node->proof = INT_MAX;
+			node->disproof = 0;
+
+			for (Node* child : node->children)
+			{
+				if (child->disproof == INT_MAX)
+				{
+					node->disproof = INT_MAX;
+				}
+				else if (node->disproof != INT_MAX)
+				{
+					node->disproof += child->disproof;
+				}
+				node->proof = std::min(node->proof, child->proof);
+			}
+		}
+	}
+	else
+	{
+		if (node->state == State::UNKNOWN) 
+		{
+			node->proof = 1;
+			node->disproof = 1;
+		}
+		else if(node->state == State::WIN)
+		{
+			node->proof = 0;
+			node->disproof = INT_MAX;
+		}
+		else if (node->state == State::LOSE) 
+		{
+			node->proof = INT_MAX;
+			node->disproof = 0;
+		}
+	}
+}
+
+Node* updateAncestors(Node* node, Node* root, bool player)
+{
+	while (node != root)
+	{
+		int oldProof = node->proof;
+		int oldDisproof = node->disproof;
+
+		setProofAndDisproofNumbers(node, player);
+		if (node->proof == oldProof && node->disproof == oldDisproof)
+		{
+			return node;
+		}
+
+		node = node->parent;
+	}
+
+	setProofAndDisproofNumbers(root, player);
+	return root;
+}
+
+void evaluatePNS(Node* node, bool maximizingPlayer)
+{
+	std::vector<Move> Moves = getAllMoves(maximizingPlayer);
+	int numOfMoves = Moves.size();
+
+	if (numOfMoves > 1)
+	{
+		node->state = State::UNKNOWN;
+	}
+	else
+	{
+		maximizingPlayer ? node->state = State::LOSE : node->state = State::WIN;
+	}
+}
+
+
+void expandNode(Node* node, bool maximizingPlayer)
+{
+	generateChildren(node, maximizingPlayer);
+
+	for (Node* child : node->children)
+	{
+		evaluatePNS(child, maximizingPlayer);
+		setProofAndDisproofNumbers(child, maximizingPlayer);
+
+		if (node->type == Type::AND)
+		{
+			if (child->disproof == 0)
+			{
+				break;
+			}
+		}
+		else
+		{
+			if (child->proof == 0)
+			{
+				break;
+			}
+		}
+	}
+
+	node->isExpanded = true;
+}
+
+Node* PNS_alg(Node* root, bool player)
+{
+	evaluatePNS(root, player);
+	setProofAndDisproofNumbers(root, player);
+
+	Node* current = root;
+	while (root->proof != 0 && root->disproof != 0 && resourcesAvailable())
+	{
+		Node* mostProving = selectMostProvingNode(current);
+		expandNode(mostProving, player);
+		current = updateAncestors(mostProving, root, player);
+	}
+
+	Node* temp = selectBestMove(root);
+	return temp;
+}
+
 /********************* ALGORYTMY ***********************************/
 
 /********************* GRA NIE ZMIANIAC***********************************/
@@ -759,7 +1009,7 @@ void takeField(int& row, int& column)
 	{
 		if (player1Turn)
 		{
-			int value;
+			int value = 0;
 			gameState = { player1Row, player1Column, player2Row, player2Column, Move{player1Row, player1Column} };
 			
 			auto start = high_resolution_clock::now();
@@ -780,11 +1030,31 @@ void takeField(int& row, int& column)
 			{
 				maxDepth % 2 == 0 ? value = alphabetaWithSorting(gameState, maxDepth, true, INT_MIN, INT_MAX) : value = alphabetaWithSorting(gameState, maxDepth, false, INT_MIN, INT_MAX);
 			}
+			else if (algorithm == PNS) 
+			{
+				if (numOfAlgorithmsOneGame >= turnsToLunchPNS) 
+				{
+					resetResources();
+					Node* bestMove = new Node();
+					maxDepth % 2 == 0 ? bestMove = PNS_alg(bestMove, true) : bestMove = PNS_alg(bestMove, false);
+					if (bestMove != nullptr) 
+					{
+						gameState.bestMove.row = bestMove->move.row;
+						gameState.bestMove.column = bestMove->move.column;
+					}
+				}
+				else 
+				{
+					maxDepth % 2 == 0 ? value = alphabetaWithSorting(gameState, maxDepth, true, INT_MIN, INT_MAX) : value = alphabetaWithSorting(gameState, maxDepth, false, INT_MIN, INT_MAX);
+				}
+			}
 
 			auto stop = high_resolution_clock::now();
 			auto duration = duration_cast<microseconds>(stop - start);
 			numOfAlgorithms++;
 			durationOfAlgorithms += duration;
+			
+			numOfAlgorithmsOneGame++;
 
 			printf("Best value: %d best move row: %d column: %d: \n", value, gameState.bestMove.row, gameState.bestMove.column);
 			row = gameState.bestMove.row;
@@ -864,7 +1134,7 @@ void setGameConfig()
 	printf("Podaj liczbe gier: ");
 	scanf_s("%d", &maxGames);
 
-	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n3 - AlphaBeta\n4 - AlphaBeta z sortowaniem\n");
+	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n3 - AlphaBeta\n4 - AlphaBeta z sortowaniem\n5 - PNS\n");
 	scanf_s("%d", &algorithm);
 
 	printf("Podaj glebokosc dla algorytmu: ");
@@ -880,6 +1150,7 @@ void resetGame()
 	movePhase = true;
 	isGameOver = false;
 	numOfPossibleMoves = 0;
+	numOfAlgorithmsOneGame = 0;
 
 	if (numOfGames < maxGames)
 	{
