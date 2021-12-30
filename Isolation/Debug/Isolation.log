@@ -1,2 +1,3 @@
 ﻿  Isolation.cpp
+D:\VS Projects\Isolation\Isolation\Isolation.cpp(1019,13): warning C4305: '+=': truncation from 'double' to 'float'
   Isolation.vcxproj -> D:\VS Projects\Isolation\Debug\Isolation.exe

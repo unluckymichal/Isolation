@@ -28,6 +28,7 @@ int numOfPossibleMoves = 0;
 const int turnsToLunchPNS = 8;
 int maxResources = 999;
 int resources = 0;
+int numOfSimulations = 10;
 // statystyki
 int numOfGames = 0;
 int maxGames = 0;
@@ -36,12 +37,13 @@ int numOfAlgorithms = 0;
 int numOfAlgorithmsOneGame = 0;
 microseconds durationOfAlgorithms{0};
 // algorytmy
-int maxDepth = 6;
+int maxDepth = 3;
 const int MINIMAX = 1;
 const int NEGAMAX = 2;
 const int ALPHABETA = 3;
 const int ALPHABETA_SORT = 4;
 const int PNS = 5;
+const int MCS = 6;
 int algorithm = -99;
 
 struct Move
@@ -255,7 +257,6 @@ void movePlayer(Move move, bool player)
 		player1Row = move.row;
 		player1Column = move.column;
 		board[player1Row][player1Column] = player1;
-
 	}
 	else
 	{
@@ -980,6 +981,57 @@ Node* PNS_alg(Node* root, bool player)
 	return temp;
 }
 
+void MonteCarloEvaluation(GameState& gameState, bool maximizingPlayer, int numOfSimulations)
+{
+	Move bestMove;
+	float bestProbability = -1;
+
+	std::vector<Move> Moves = getAllMoves(maximizingPlayer);
+				
+	for (auto move : Moves)
+	{
+		int r = 0;
+		for (int i = 0; i < numOfSimulations; i++)
+		{
+			Move oldMove{ getOldMove(maximizingPlayer) };
+			movePlayer(move, maximizingPlayer);
+			std::vector<Move> Moves = getAllMoves(maximizingPlayer);
+			movePlayer(oldMove, maximizingPlayer);
+			
+			float x = 0;
+			while (Moves.size() > 1 && x < 10)
+			{
+				Move oldMove{ getOldMove(maximizingPlayer) };
+				srand((int)time(0));
+				int randomIndex = rand() % Moves.size();
+				movePlayer(Moves[randomIndex], maximizingPlayer);
+
+				if (getAllMoves(!maximizingPlayer).size() > 2)
+				{
+					r++;
+				}
+
+				Moves = getAllMoves(maximizingPlayer);
+				movePlayer(oldMove, maximizingPlayer);
+
+				x++;
+			}
+			x += 0.01;
+			float probability = (float)(r/x) / numOfSimulations;
+			//printf("probability %f\n", probability);
+			x = 0;
+
+			if (probability > bestProbability)
+			{
+				bestMove = move;
+				bestProbability = probability;
+			}
+		}
+	}
+
+	gameState.bestMove = bestMove;
+}
+
 /********************* ALGORYTMY ***********************************/
 
 /********************* GRA NIE ZMIANIAC***********************************/
@@ -1047,6 +1099,11 @@ void takeField(int& row, int& column)
 				{
 					maxDepth % 2 == 0 ? value = alphabetaWithSorting(gameState, maxDepth, true, INT_MIN, INT_MAX) : value = alphabetaWithSorting(gameState, maxDepth, false, INT_MIN, INT_MAX);
 				}
+			}
+			else if (algorithm == MCS)
+			{
+				MonteCarloEvaluation(gameState, true, numOfSimulations);
+				//maxDepth % 2 == 0 ? value = alphabetaWithSorting(gameState, maxDepth, true, INT_MIN, INT_MAX) : value = alphabetaWithSorting(gameState, maxDepth, false, INT_MIN, INT_MAX);
 			}
 
 			auto stop = high_resolution_clock::now();
@@ -1134,11 +1191,19 @@ void setGameConfig()
 	printf("Podaj liczbe gier: ");
 	scanf_s("%d", &maxGames);
 
-	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n3 - AlphaBeta\n4 - AlphaBeta z sortowaniem\n5 - PNS\n");
+	printf("Wybierz algorytm:\n1 - MiniMax\n2 - NegaMax\n3 - AlphaBeta\n4 - AlphaBeta z sortowaniem\n5 - PNS\n6 - MCS\n");
 	scanf_s("%d", &algorithm);
 
-	printf("Podaj glebokosc dla algorytmu: ");
-	scanf_s("%d", &maxDepth);
+	if (algorithm != MCS) 
+	{
+		printf("Podaj glebokosc dla algorytmu: ");
+		scanf_s("%d", &maxDepth);
+	}
+	else 
+	{
+		printf("Podaj ilosc symulacji: ");
+		scanf_s("%d", &numOfSimulations);
+	}
 }
 
 void resetGame()
